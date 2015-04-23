@@ -49,7 +49,7 @@ InputFile::InputFile(IOStream &infile)
 	const bool opened = _file->OpenFromHandle(_fileH);
 	
 	if(!opened)
-		throw InputExc("Error opening file");
+		throw IoExc("Error opening file");
 		
 	
 	mxflib::PartitionPtr master_partition = _file->ReadMasterPartition();

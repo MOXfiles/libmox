@@ -13,7 +13,7 @@ namespace MoxMxf
 	{
 	  public:
 		IOStream() {}
-		virtual ~IOStream() {};
+		virtual ~IOStream() {}
 		
 		virtual int FileSeek(UInt64 offset) = 0;
 		virtual UInt64 FileRead(unsigned char *dest, UInt64 size) = 0;

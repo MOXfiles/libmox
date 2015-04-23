@@ -30,6 +30,15 @@ namespace MoxMxf
 		
 		void PushEssence(TrackNum trackNumber, mxflib::DataChunkPtr data, int KeyOffset=0, int TemporalOffset=0, int Flags=-1);
 
+	  public:
+		static inline TrackNum TrackNumber(UInt8 itemType, UInt8 count, UInt8 elementType, UInt8 number)
+		{
+			return (itemType << 24) | (count << 16) | (elementType << 8) | number;
+		}
+		
+		//static inline UInt8 ItemType(TrackNum trackNumber) { return ((trackNumber & 0xff000000) >> 24); }
+		//static inline UInt8 ElementType(TrackNum trackNumber) { return ((trackNumber & 0x0000ff00) >> 8); }
+		
 	  private:
 		void initPartition(mxflib::PartitionPtr partition, SID bodySID, SID indexSID);
 
@@ -86,11 +95,6 @@ namespace MoxMxf
 			const mxflib::Rational _edit_rate;
 			Position _position;
 		};
-		
-		static inline TrackNum TrackNumber(UInt8 itemType, UInt8 count, UInt8 elementType, UInt8 number)
-		{
-			return (itemType << 24) | (count << 16) | (elementType << 8) | number;
-		}
 	};
 
 } // namespace

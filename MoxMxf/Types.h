@@ -11,34 +11,10 @@
 #ifndef MOXMXF_TYPES_H
 #define MOXMXF_TYPES_H
 
-
-//#include <mxflib/system.h>
-//#include <mxflib/types.h>
-
+#include <mxflib/mxflib.h>
 
 namespace MoxMxf
 {
-/*
-	typedef mxflib::UInt32		UInt32;
-	typedef mxflib::UInt16		UInt16;
-	typedef mxflib::UInt8		UInt8;
-	
-	typedef mxflib::Int32		Int32;
-	typedef mxflib::Int16		Int16;
-	typedef mxflib::Int8		Int8;
-	
-	typedef mxflib::Int64		Int64;
-	typedef mxflib::UInt64		UInt64;
-	
-	typedef mxflib::Length		Length;
-	typedef mxflib::Position	Position;
-	
-	typedef mxflib::Rational	Rational;
-	
-	
-	typedef UInt32 FileHandle;
-*/
-
 	// copied from system.h in mxflib
 	typedef unsigned int UInt32;	
 	typedef unsigned short int UInt16;
@@ -65,6 +41,10 @@ namespace MoxMxf
 	typedef Int32 TrackNum;
 	typedef UInt32 SID;
 	
+	using mxflib::RefCount;
+	using mxflib::SmartPtr;
+	using mxflib::DataChunk;
+	using mxflib::DataChunkPtr;
 	
 	class Rational
 	{
