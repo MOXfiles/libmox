@@ -16,18 +16,32 @@
 
 #include <MoxMxf/Descriptor.h>
 
+#include <queue>
+
 namespace MoxFiles
 {
 	class VideoCodec
 	{
 	  public:
-		VideoCodec(const Header &header, const ChannelList &channels) {}
+		VideoCodec(const Header &header, const ChannelList &channels) {} // for compression
+		VideoCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, const ChannelList &channels) {} // for decompression
 		virtual ~VideoCodec() {}
 		
 		virtual MoxMxf::Descriptor * getDescriptor() = 0;
 		
-		virtual DataChunkPtr compress(FrameBufferPtr frame) = 0;
-		virtual FrameBufferPtr decompress(DataChunkPtr data) = 0;
+		virtual void compress(FrameBufferPtr frame) = 0;
+		virtual DataChunkPtr getNextData();
+		
+		virtual void decompress(const DataChunk &data) = 0;
+		virtual FrameBufferPtr getNextFrame();
+	
+	  protected:
+		virtual void storeData(DataChunkPtr dat);
+		virtual void storeFrame(FrameBufferPtr frm);
+		
+	  private:
+		std::queue<DataChunkPtr> _data_queue;
+		std::queue<FrameBufferPtr> _frame_queue;
 	};
 	
 
@@ -56,13 +70,15 @@ namespace MoxFiles
 		
 		virtual ChannelCapabilities getChannelCapabilites() const = 0;
 		
-		virtual VideoCodec * createCodec(const Header &header, const ChannelList &channels) const = 0;
+		virtual VideoCodec * createCodec(const Header &header, const ChannelList &channels) const = 0; // compression
+		virtual VideoCodec * createCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, const ChannelList &channels) const = 0; // decompression
 	};
 	
 
 	typedef std::map<VideoCompression, VideoCodecInfo *> VideoCodecList;
 	
 	const VideoCodecInfo & getVideoCodecInfo(VideoCompression videoCompression);
+	//const VideoCodecInfo & getVideoCodecInfo(MoxMxf::VideoDescriptor::VideoCodec videoCodec);
 }
 
 #endif // MOXFILES_CODEC_H

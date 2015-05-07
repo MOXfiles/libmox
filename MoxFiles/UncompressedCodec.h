@@ -18,15 +18,28 @@ namespace MoxFiles
 	{
 	  public:
 		UncompressedCodec(const Header &header, const ChannelList &channels);
+		UncompressedCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, const ChannelList &channels);
 		virtual ~UncompressedCodec();
 		
 		virtual MoxMxf::Descriptor * getDescriptor() { return &_descriptor; }
 				
-		virtual DataChunkPtr compress(FrameBufferPtr frame);
-		virtual FrameBufferPtr decompress(DataChunkPtr data);
+		virtual void compress(FrameBufferPtr frame);
+		virtual void decompress(const DataChunk &data);
 	
 	  private:
 		MoxMxf::RGBADescriptor _descriptor;
+		
+		typedef struct ChannelBits
+		{
+			std::string name;
+			unsigned char code;
+			PixelType type;
+			
+			ChannelBits(std::string n, unsigned char c, PixelType t) : name(n), code(c), type(t) {}
+		} ChannelBits;
+		
+		std::vector<ChannelBits> _channels;
+		unsigned char _padding;
 	};
 	
 	class UncompressedCodecInfo : public VideoCodecInfo
@@ -40,6 +53,7 @@ namespace MoxFiles
 		virtual ChannelCapabilities getChannelCapabilites() const;
 		
 		virtual VideoCodec * createCodec(const Header &header, const ChannelList &channels) const;
+		virtual VideoCodec * createCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, const ChannelList &channels) const;
 	};
 
 } // namepsace

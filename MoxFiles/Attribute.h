@@ -12,6 +12,7 @@
 
 #include <MoxFiles/Types.h>
 #include <MoxFiles/ChannelList.h>
+#include <MoxFiles/AudioChannelList.h>
 #include <MoxFiles/VideoCompression.h>
 #include <MoxFiles/AudioCompression.h>
 
@@ -210,6 +211,11 @@ typedef TypedAttribute<Rational>			RationalAttribute;
 typedef TypedAttribute<VideoCompression>	VideoCompressionAttribute;
 typedef TypedAttribute<AudioCompression>	AudioCompressionAttribute;
 typedef TypedAttribute<ChannelList>			ChannelListAttribute;
+typedef TypedAttribute<AudioChannelList>	AudioChannelListAttribute;
+typedef TypedAttribute<int>					IntAttribute;
+typedef TypedAttribute<Int64>				Int64Attribute;
+typedef TypedAttribute<float>				FloatAttribute;
+
 
 template <>
 const char *Box2iAttribute::staticTypeName();
@@ -221,6 +227,14 @@ template <>
 const char *AudioCompressionAttribute::staticTypeName();
 template <>
 const char *ChannelListAttribute::staticTypeName();
+template <>
+const char *AudioChannelListAttribute::staticTypeName();
+template <>
+const char *IntAttribute::staticTypeName();
+template <>
+const char *Int64Attribute::staticTypeName();
+template <>
+const char *FloatAttribute::staticTypeName();
 
 
 //------------------------------------

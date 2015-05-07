@@ -228,6 +228,61 @@ InputFile::getDuration() const
 }
 
 
+Rational
+InputFile::getEditRate() const
+{
+	Rational edit_rate(0, 0);
+
+#ifdef NDEBUG
+	// cut to the chase when not debugging
+	for(TrackMap::const_iterator t = _tracks.begin(); t != _tracks.end(); ++t)
+	{
+		edit_rate = t->second->getEditRate();
+	
+		if(edit_rate.Numerator != 0 && edit_rate.Denominator != 0)
+			return edit_rate
+	}
+#else
+	// lots of asserts for the debug case
+	for(TrackMap::const_iterator t = _tracks.begin(); t != _tracks.end(); ++t)
+	{
+		if(edit_rate.Numerator == 0)
+		{
+			edit_rate = t->second->getEditRate();
+		}
+		else
+		{
+			assert(edit_rate == t->second->getEditRate());
+		}
+		
+		if(SourceTrack *source = dynamic_cast<SourceTrack *>(t->second))
+		{
+			const SID indexSID = source->getIndexSID();
+		
+			if(indexSID != 0)
+			{
+				IndexMap::const_iterator idx = _index_map.find(indexSID);
+			
+				if(idx != _index_map.end())
+				{
+					mxflib::IndexTablePtr table = idx->second;
+					
+					//assert(table->EditRate == edit_rate); // the index table's Edit Rate is coming in as 0/1 for some reason
+				}
+				else
+					assert(false);
+			}
+		}
+	}
+	
+	assert(edit_rate.Numerator != 0 && edit_rate.Denominator != 0);
+#endif // NDEBUG
+	
+	return edit_rate;
+}
+
+
+
 class SequentialReadHandler : public mxflib::GCReadHandler_Base
 {
   public:

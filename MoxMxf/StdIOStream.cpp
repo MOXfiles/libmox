@@ -9,6 +9,8 @@
 
 #include <MoxMxf/StdIOStream.h>
 
+#include <MoxMxf/Exception.h>
+
 #include <assert.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -30,7 +32,7 @@ StdIOStream::StdIOStream(const char *filename, Cababilities abilities) :
 	}
 	
 	if(_fp == NULL)
-		throw -1;
+		throw IoExc("Failed to open file.");
 }
 
 

@@ -38,6 +38,13 @@ Channel::operator == (const Channel &other) const
 }
 
 
+size_t
+ChannelList::size() const
+{
+	return _map.size();
+}
+
+
 void	
 ChannelList::insert (const char name[], const Channel &channel)
 {

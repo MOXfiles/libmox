@@ -16,7 +16,7 @@
 namespace MoxMxf
 {
 	// copied from system.h in mxflib
-	typedef unsigned int UInt32;	
+/*	typedef unsigned int UInt32;	
 	typedef unsigned short int UInt16;
 	typedef unsigned char UInt8;	
 
@@ -34,9 +34,22 @@ namespace MoxMxf
 
 	typedef Int64 Length;		// Lenth of an item in bytes
 	typedef Int64 Position;		// Position within an MXF file
-
-	typedef UInt32 FileHandle; // same as system.h in mxflib when MXFLIB_NO_FILE_IO
+*/
+	using mxflib::UInt64;
+	using mxflib::UInt32;
+	using mxflib::UInt16;
+	using mxflib::UInt8;
+	using mxflib::Int64;
+	using mxflib::Int32;
+	using mxflib::Int16;
+	using mxflib::Int8;
 	
+	using mxflib::Length;
+	using mxflib::Position;
+	
+	using mxflib::Rational;
+	
+	typedef UInt32 FileHandle; // same as system.h in mxflib when MXFLIB_NO_FILE_IO
 	
 	typedef Int32 TrackNum;
 	typedef UInt32 SID;
@@ -45,7 +58,7 @@ namespace MoxMxf
 	using mxflib::SmartPtr;
 	using mxflib::DataChunk;
 	using mxflib::DataChunkPtr;
-	
+/*	
 	class Rational
 	{
 	  public:
@@ -65,6 +78,7 @@ namespace MoxMxf
 			return !operator==(RHS);
 		}
 	};
+*/
 }
 
 

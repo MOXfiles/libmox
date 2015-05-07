@@ -176,7 +176,7 @@ PictureTrack::PictureTrack(mxflib::TrackPtr track) :
 	
 	if(descriptor)
 	{
-		if(*descriptor->GetUL() == MPEG2VideoDescriptor_UL)
+		if(descriptor->IsA(MPEG2VideoDescriptor_UL))
 		{
 			_descriptor = new MPEGDescriptor(descriptor);
 		
@@ -190,6 +190,10 @@ PictureTrack::PictureTrack(mxflib::TrackPtr track) :
 			//assert(_height == descriptor->Child(StoredHeight_UL)->GetUInt());
 			
 			//assert(getEditRate() == Rational(descriptor->Child(SampleRate_UL)->GetInt("Numerator"), descriptor->Child(SampleRate_UL)->GetInt("Denominator")));
+		}
+		else if(descriptor->IsA(RGBAEssenceDescriptor_UL))
+		{
+			_descriptor = new RGBADescriptor(descriptor);
 		}
 	}
 	else

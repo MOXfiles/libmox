@@ -111,6 +111,7 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 	_mxf_file = new MoxMxf::OutputFile(outfile, essence_list, header.frameRate(), 0);
 }
 
+
 OutputFile::~OutputFile()
 {
 	delete _mxf_file;
@@ -129,7 +130,12 @@ OutputFile::pushFrame(const FrameBufferPtr frame)
 	{
 		CodecUnit &unit = *i;
 		
-		DataChunkPtr data = unit.codec->compress(frame);
+		unit.codec->compress(frame);
+		
+		DataChunkPtr data = unit.codec->getNextData();
+		
+		if(!data)
+			throw MoxMxf::NoImplExc("Not handling buffered data.");
 		
 		_mxf_file->PushEssence(unit.trackNumber, data);
 	}

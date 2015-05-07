@@ -82,6 +82,8 @@ class ChannelList
 {
   public:
 
+	size_t			size() const;
+	
     //--------------
     // Add a channel
     //--------------

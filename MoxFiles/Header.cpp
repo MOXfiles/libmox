@@ -23,8 +23,11 @@ initialize(Header &header,
 		int height,
 		const Rational &pixelAspectRatio,
 		const Rational &frameRate,
+		float sampleRate,
 		VideoCompression videoCompression,
-		AudioCompression audioCompression)
+		AudioCompression audioCompression,
+		int duration,
+		Int64 audioDuration)
 {
 	staticInitialize();
 
@@ -33,9 +36,13 @@ initialize(Header &header,
     header.insert("displayWindow", Box2iAttribute(dispW));
     header.insert("pixelAspectRatio", RationalAttribute(pixelAspectRatio));
 	header.insert("frameRate", RationalAttribute(frameRate));
+	header.insert("sampleRate", FloatAttribute(sampleRate));
 	header.insert("videoCompression", VideoCompressionAttribute(videoCompression));
 	header.insert("audioCompression", AudioCompressionAttribute(audioCompression));
 	header.insert("channels", ChannelListAttribute());
+	header.insert("audiochannels", AudioChannelListAttribute());
+	header.insert("duration", IntAttribute(duration));
+	header.insert("audioDuration", Int64Attribute(audioDuration));
 }
 
 
@@ -43,16 +50,22 @@ Header::Header(int width,
 			int height,
 			const Rational &pixelAspectRatio,
 			const Rational &frameRate,
+			float sampleRate,
 			VideoCompression videoCompression,
-			AudioCompression audioCompression)
+			AudioCompression audioCompression,
+			int duration,
+			Int64 audioDuration)
 {
 	initialize(*this,
 			width,
 			height,
 			pixelAspectRatio,
 			frameRate,
+			sampleRate,
 			videoCompression,
-			audioCompression);
+			audioCompression,
+			duration,
+			audioDuration);
 }
 
 
@@ -300,6 +313,38 @@ Header::height() const
 }
 
 
+int &	
+Header::duration ()
+{
+    return static_cast <IntAttribute &>
+	((*this)["duration"]).value();
+}
+
+
+const int &
+Header::duration () const
+{
+    return static_cast <const IntAttribute &>
+	((*this)["duration"]).value();
+}
+
+
+Int64 &	
+Header::audioDuration ()
+{
+    return static_cast <Int64Attribute &>
+	((*this)["audioDuration"]).value();
+}
+
+
+const Int64 &
+Header::audioDuration () const
+{
+    return static_cast <const Int64Attribute &>
+	((*this)["audioDuration"]).value();
+}
+
+
 Rational &	
 Header::pixelAspectRatio ()
 {
@@ -332,6 +377,22 @@ Header::frameRate () const
 }
 
 
+float &	
+Header::sampleRate ()
+{
+    return static_cast <FloatAttribute &>
+	((*this)["sampleRate"]).value();
+}
+
+
+const float &
+Header::sampleRate () const
+{
+    return static_cast <const FloatAttribute &>
+	((*this)["sampleRate"]).value();
+}
+
+
 ChannelList &	
 Header::channels ()
 {
@@ -345,6 +406,22 @@ Header::channels () const
 {
     return static_cast <const ChannelListAttribute &>
 	((*this)["channels"]).value();
+}
+
+
+AudioChannelList &	
+Header::audioChannels ()
+{
+    return static_cast <AudioChannelListAttribute &>
+	((*this)["audiochannels"]).value();
+}
+
+
+const AudioChannelList &	
+Header::audioChannels () const
+{
+    return static_cast <const AudioChannelListAttribute &>
+	((*this)["audiochannels"]).value();
 }
 
 

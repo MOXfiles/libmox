@@ -23,6 +23,7 @@ namespace MoxMxf
 	  public:
 		Descriptor(mxflib::MDObjectPtr descriptor);
 		Descriptor(Rational sample_rate);
+		Descriptor(const Descriptor &other);
 		virtual ~Descriptor() {}
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;
@@ -41,8 +42,8 @@ namespace MoxMxf
 		mxflib::UL getEssenceType() const { return _essence_container; }
 
 	  protected:
-		void setEssenceType(const mxflib::UL &ul) { _essence_container = ul; }
-		void setCodecType(const mxflib::UL &ul) { _codec = ul; }
+		void setEssenceContainerLabel(const mxflib::UL &ul) { _essence_container = ul; }
+		void setCodec(const mxflib::UL &ul) { _codec = ul; }
 	  
 		virtual mxflib::UL getDescriptorUL() const = 0;
 		
@@ -59,6 +60,7 @@ namespace MoxMxf
 	  public:
 		VideoDescriptor(mxflib::MDObjectPtr descriptor);
 		VideoDescriptor(Rational sample_rate, UInt32 width, UInt32 height);
+		VideoDescriptor(const VideoDescriptor &other);
 		virtual ~VideoDescriptor() {}
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;
@@ -88,6 +90,9 @@ namespace MoxMxf
 		};
 		
 		void setFrameLayout(UInt8 layout) { _frame_layout = layout; }
+		
+		UInt32 getWidth() const { return _stored_width; }
+		UInt32 getHeight() const { return _stored_height; }
 		
 	  protected:
 		void setPictureEssenceCoding(const mxflib::UL &ul) { _picture_essence_coding = ul; }
@@ -127,6 +132,7 @@ namespace MoxMxf
 	  public:
 		CDCIDescriptor(mxflib::MDObjectPtr descriptor);
 		CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height, UInt32 horizontal_subsampling, UInt32 vertical_subsampling);
+		CDCIDescriptor(const CDCIDescriptor &other);
 		virtual ~CDCIDescriptor() {}
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;
@@ -167,6 +173,7 @@ namespace MoxMxf
 	  public:
 		RGBADescriptor(mxflib::MDObjectPtr descriptor);
 		RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height);
+		RGBADescriptor(const RGBADescriptor &other);
 		virtual ~RGBADescriptor() {}
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;
@@ -176,6 +183,15 @@ namespace MoxMxf
 		
 		virtual VideoCodec getVideoCodec() const { return VideoCodecUncompressedRGB; }
 		
+		// see SMPTE 377M E.2.46 (page 99)
+		typedef std::vector<UInt8> PixelLayout;
+		void setPixelLayout(const PixelLayout &layout) { _pixel_layout = layout; }
+		const PixelLayout & getPixelLayout() { return _pixel_layout; }
+		
+	  protected:
+		virtual mxflib::UL getDescriptorUL() const { return mxflib::RGBAEssenceDescriptor_UL; }
+	
+	  private:
 		enum {
 			ScanningDir_LRTB = 0, // left to right, top to bottom
 			ScanningDir_RLTB = 1,
@@ -187,16 +203,12 @@ namespace MoxMxf
 			ScanningDir_BTRL = 7
 		};
 		
-	  protected:
-		virtual mxflib::UL getDescriptorUL() const { return mxflib::RGBAEssenceDescriptor_UL; }
-	
-	  private:
 		UInt32 _component_max_ref;
 		UInt32 _component_min_ref;
 		UInt32 _alpha_max_ref;
 		UInt32 _alpha_min_ref;
 		UInt8 _scanning_direction;
-		std::vector<UInt8> _pixel_layout;
+		PixelLayout _pixel_layout;
 		// palette
 		// palette layout
 	};
@@ -207,6 +219,7 @@ namespace MoxMxf
 	  public:
 		MPEGDescriptor(mxflib::MDObjectPtr descriptor);
 		MPEGDescriptor(Rational sample_rate, UInt32 width, UInt32 height, UInt32 horizontal_subsampling, UInt32 vertical_subsampling);
+		MPEGDescriptor(const MPEGDescriptor &other);
 		virtual ~MPEGDescriptor() {}
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;
@@ -245,6 +258,7 @@ namespace MoxMxf
 	  public:
 		AudioDescriptor(mxflib::MDObjectPtr descriptor);
 		AudioDescriptor(Rational sample_rate, Rational audio_sample_rate, UInt32 channel_count, UInt32 quantization_bits);
+		AudioDescriptor(const AudioDescriptor &other);
 		virtual ~AudioDescriptor() {}
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;
@@ -284,6 +298,7 @@ namespace MoxMxf
 	  public:
 		WaveAudioDescriptor(mxflib::MDObjectPtr descriptor);
 		WaveAudioDescriptor(Rational sample_rate, Rational audio_sample_rate, UInt32 channel_count, UInt32 quantization_bits);
+		WaveAudioDescriptor(const WaveAudioDescriptor &other);
 		virtual ~WaveAudioDescriptor() {}
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;
@@ -308,6 +323,7 @@ namespace MoxMxf
 	  public:
 		AES3Descriptor(mxflib::MDObjectPtr descriptor);
 		AES3Descriptor(Rational sample_rate, Rational audio_sample_rate, UInt32 channel_count, UInt32 quantization_bits);
+		AES3Descriptor(const AES3Descriptor &other);
 		virtual ~AES3Descriptor() {}
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;

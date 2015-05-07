@@ -159,6 +159,38 @@ ChannelListAttribute::staticTypeName()
 }
 
 
+template <>
+const char *
+AudioChannelListAttribute::staticTypeName()
+{
+	return "audiochlist";
+}
+
+
+template <>
+const char *
+IntAttribute::staticTypeName()
+{
+	return "int";
+}
+
+
+template <>
+const char *
+Int64Attribute::staticTypeName()
+{
+	return "int64";
+}
+
+
+template <>
+const char *
+FloatAttribute::staticTypeName()
+{
+	return "float";
+}
+
+
 } // namespace
 
 

@@ -67,16 +67,19 @@ OutputFile::OutputFile(IOStream &outfile, const EssenceList &essence, Rational E
 	// Source Package
 	mxflib::UMIDPtr sourceUMID = mxflib::MakeUMID(4);
 	mxflib::PackagePtr sourcePkg = _metadata->AddSourcePackage(sourceUMID);
-	_metadata->AddEssenceContainerData(sourceUMID, _bodySID);
-	//const bool essence_data_added = _metadata->AddEssenceContainerData(sourceUMID, bodySID, indexSID);
-	//assert(essence_data_added);
+	const bool essence_data_added = _metadata->AddEssenceContainerData(sourceUMID, _bodySID, _indexSID);
+	assert(essence_data_added);
 	
 	
-	mxflib::Rational edit_rate(EditRate.Numerator, EditRate.Denominator);
+	const mxflib::Rational &edit_rate = EditRate;
 	
 	mxflib::TrackPtr timecodeTrack = materialPkg->AddTimecodeTrack(edit_rate);
 	mxflib::TimecodeComponentPtr timecodeComponent = timecodeTrack->AddTimecodeComponent(startTimeCode);
 	_duration_objs.push_back(SmartPtr_Cast(timecodeComponent, mxflib::Component));
+	
+	mxflib::TrackPtr timecodeTrack2 = sourcePkg->AddTimecodeTrack(edit_rate);
+	mxflib::TimecodeComponentPtr timecodeComponent2 = timecodeTrack2->AddTimecodeComponent(startTimeCode);
+	_duration_objs.push_back(SmartPtr_Cast(timecodeComponent2, mxflib::Component));
 	
 	
 	// count how many of each ItemType we have
@@ -213,6 +216,8 @@ OutputFile::OutputFile(IOStream &outfile, const EssenceList &essence, Rational E
 	_writer->AddStream(bodyStream);
 	
 	_index_manager = bodyStream->GetIndexManager();
+	
+	_index_manager->SetEditRate(EditRate);
 }
 
 

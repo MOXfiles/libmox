@@ -26,8 +26,11 @@ class Header
 			int height = 64,
 			const Rational &pixelAspectRatio = Rational(1, 1),
 			const Rational &frameRate = Rational(24, 1),
+			float sampleRate = 0.f,
 			VideoCompression videoCompression = UNCOMPRESSED,
-			AudioCompression audioCompression = AES3);
+			AudioCompression audioCompression = AES3,
+			int duration = 0,
+			Int64 audioDuration = 0);
 			
 	Header(const Header &other);
 	
@@ -144,15 +147,27 @@ class Header
 	
 	int width () const;
 	int height () const;
+	
+	int &				duration();
+	const int &			duration() const;
 
+	Int64 &				audioDuration();
+	const Int64 &		audioDuration() const;
+	
     Rational &			pixelAspectRatio ();
     const Rational &	pixelAspectRatio () const;
 
     Rational &			frameRate ();
     const Rational &	frameRate () const;
 	
+    float &				sampleRate ();
+    const float &		sampleRate () const;
+	
     ChannelList &		channels ();
     const ChannelList &	channels () const;
+	
+    AudioChannelList &		audioChannels ();
+    const AudioChannelList & audioChannels () const;
 	
 	VideoCompression &			videoCompression ();
 	const VideoCompression &	videoCompression () const;
@@ -160,7 +175,7 @@ class Header
  	AudioCompression &			audioCompression ();
 	const AudioCompression &	audioCompression () const;
 	
-   //-------------------------------------------------------------
+    //-------------------------------------------------------------
     // Sanity check -- examines the header, and throws an exception
     // if it finds something wrong (empty display window, negative
     // pixel aspect ratio, unknown compression sceme etc.)

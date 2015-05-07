@@ -10,6 +10,8 @@
 #ifndef MOXFILES_PIXELTYPE_H
 #define MOXFILES_PIXELTYPE_H
 
+#include <stddef.h>
+
 namespace MoxFiles
 {
 	enum PixelType
@@ -25,6 +27,14 @@ namespace MoxFiles
 
 		NUM_PIXELTYPES	// number of different pixel types
 	};
+	
+	
+	// unpacked size in bytes
+	size_t PixelSize(PixelType type);
+	
+	// actual bit depth
+	unsigned int PixelBits(PixelType type);
+	
 } // namespace
 
 #endif // MOXFILES_PIXELTYPE_H

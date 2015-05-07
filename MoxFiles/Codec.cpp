@@ -14,6 +14,52 @@
 namespace MoxFiles
 {
 
+DataChunkPtr
+VideoCodec::getNextData()
+{
+	DataChunkPtr dat;
+	
+	if(!_data_queue.empty())
+	{
+		dat = _data_queue.front();
+		
+		_data_queue.pop();
+	}
+	
+	return dat;
+}
+
+
+FrameBufferPtr
+VideoCodec::getNextFrame()
+{
+	FrameBufferPtr frm;
+	
+	if(!_frame_queue.empty())
+	{
+		frm = _frame_queue.front();
+		
+		_frame_queue.pop();
+	}
+	
+	return frm;
+}
+
+
+void
+VideoCodec::storeData(DataChunkPtr dat)
+{
+	_data_queue.push(dat);
+}
+
+
+void
+VideoCodec::storeFrame(FrameBufferPtr frm)
+{
+	_frame_queue.push(frm);
+}
+
+
 class VideoCodecListStorage
 {
   public:
@@ -52,5 +98,18 @@ getVideoCodecInfo(VideoCompression videoCompression)
 	
 	return *codecList[videoCompression];
 }
+
+/*
+const VideoCodecInfo &
+getVideoCodecInfo(MoxMxf::VideoDescriptor::VideoCodec videoCodec)
+{
+	if(videoCodec == MoxMxf::VideoDescriptor::VideoCodecUncompressedRGB)
+	{
+		return getVideoCodecInfo(UNCOMPRESSED);
+	}
+	
+	throw MoxMxf::LogicExc("Requested unknown video codec.");
+}
+*/
 
 } // namespace

@@ -74,6 +74,7 @@ namespace MoxMxf
 		const TrackMap & getTracks() const { return _tracks; }
 		
 		Length getDuration() const;
+		Rational getEditRate() const;
 		
 		FramePtr getFrame(Position EditUnit, SID bodySID, SID indexSID);
 		
