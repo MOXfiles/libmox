@@ -31,7 +31,8 @@ Descriptor::Descriptor(mxflib::MDObjectPtr descriptor)
 }
 
 Descriptor::Descriptor(Rational sample_rate) :
-	_sample_rate(sample_rate)
+	_sample_rate(sample_rate),
+	_container_duration(0)
 {
 	// empty
 }
@@ -51,7 +52,9 @@ Descriptor::makeDescriptorObj() const
 	
 	descriptor->AddChild(SampleRate_UL)->SetInt("Numerator", _sample_rate.Numerator);
 	descriptor->AddChild(SampleRate_UL)->SetInt("Denominator", _sample_rate.Denominator);
-	descriptor->AddChild(ContainerDuration_UL)->SetInt64(_container_duration);
+	
+	if(_container_duration > 0)
+		descriptor->AddChild(ContainerDuration_UL)->SetInt64(_container_duration);
 	
 	assert(!!_essence_container); // not the default zero value, you have to call setEssenceType()
 	descriptor->AddChild(EssenceContainer_UL)->SetValue(_essence_container.GetValue(), _essence_container.Size());
@@ -246,6 +249,13 @@ CDCIDescriptor::CDCIDescriptor(mxflib::MDObjectPtr descriptor) :
 	_color_range = descriptor->GetUInt(ColorRange_UL);
 }
 
+
+static const UInt8 MXF_GC_Uncompressed_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x00, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x05, 0x7f, 0x01 };
+static const mxflib::UL MXF_GC_Uncompressed_FrameWrapped_UL(MXF_GC_Uncompressed_FrameWrapped_Data);
+
+static const UInt8 Uncompressed_422_YCbCr_8bit_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0a, 0x04, 0x01, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02 };
+static const mxflib::UL Uncompressed_422_YCbCr_8bit_Picture_Coding_UL(Uncompressed_422_YCbCr_8bit_Picture_Coding_Data);
+
 CDCIDescriptor::CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height, UInt32 horizontal_subsampling, UInt32 vertical_subsampling) :
 	VideoDescriptor(sample_rate, width, height),
 	_component_depth(8),
@@ -260,12 +270,9 @@ CDCIDescriptor::CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height
 	_color_range(255)
 {
 	// this should get over-written if MPEG descriptor used
-	setEssenceContainerLabel(MXFGCUncompressed_UL);
+	setEssenceContainerLabel(MXF_GC_Uncompressed_FrameWrapped_Data);
 	
-	static const UInt8 GC_Uncompressed_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x00, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x05, 0x7f, 0x01 };
-	static const mxflib::UL GC_Uncompressed_FrameWrapped_UL(GC_Uncompressed_FrameWrapped_Data);
-
-	setPictureEssenceCoding(GC_Uncompressed_FrameWrapped_UL);
+	setPictureEssenceCoding(Uncompressed_422_YCbCr_8bit_Picture_Coding_UL);
 }
 
 CDCIDescriptor::CDCIDescriptor(const CDCIDescriptor &other) :
@@ -311,32 +318,40 @@ RGBADescriptor::RGBADescriptor(mxflib::MDObjectPtr descriptor) :
 	_alpha_min_ref = descriptor->GetUInt(AlphaMinRef_UL);
 	_scanning_direction = descriptor->GetUInt(ScanningDirection_UL);
 	
-	mxflib::MDObjectPtr pixel_layout_array = descriptor->Child(PixelLayout_UL);
+	mxflib::MDObjectPtr pixel_layout = descriptor->Child(PixelLayout_UL);
 	
-	if(pixel_layout_array && pixel_layout_array->GetClass() == mxflib::TYPEARRAY)
+	if(pixel_layout && pixel_layout->GetClass() == mxflib::TYPEARRAY)
 	{
-		assert(*pixel_layout_array->GetValueType()->GetTypeUL() == RGBALayout_UL);
+		assert(*pixel_layout->GetValueType()->GetTypeUL() == RGBALayout_UL);
 		
-		for(mxflib::MDObject::const_iterator o_itr = pixel_layout_array->begin(); o_itr != pixel_layout_array->end(); ++o_itr)
+		for(mxflib::MDObject::const_iterator o_itr = pixel_layout->begin(); o_itr != pixel_layout->end(); ++o_itr)
 		{
-			assert(o_itr->second->GetClass() == mxflib::COMPOUND);
-			assert(*o_itr->second->GetValueType()->GetTypeUL() == RGBALayoutItem_UL);
+			const mxflib::MDObjectPtr &layout_item = o_itr->second;
 		
-			const UInt8 code = o_itr->second->GetUInt("Code");
-			const UInt8 depth = o_itr->second->GetUInt("Depth");
+			assert(layout_item->GetClass() == mxflib::COMPOUND);
+			assert(*layout_item->GetValueType()->GetTypeUL() == RGBALayoutItem_UL);
+		
+			const UInt8 code = layout_item->GetUInt("Code");
+			const UInt8 depth = layout_item->GetUInt("Depth");
 		
 			if(code != 0)
 			{
 				assert(depth != 0);
 			
-				_pixel_layout.push_back(code);
-				_pixel_layout.push_back(depth);
+				_pixel_layout.push_back(RGBALayoutItem(code, depth));
 			}
 		}
 	}
 	else
 		assert(false);
 }
+
+// these are the "non-standard" ULs.  The standard ones seem to only apply to YCbCr.
+static const UInt8 GC_Uncompressed_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x05, 0x7f, 0x01 };
+static const mxflib::UL GC_Uncompressed_FrameWrapped_UL(GC_Uncompressed_FrameWrapped_Data);
+
+static const UInt8 Undefined_Uncompressed_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x01, 0x02, 0x01, 0x7f, 0x00, 0x00, 0x00 };
+static const mxflib::UL Undefined_Uncompressed_Picture_Coding_UL(Undefined_Uncompressed_Picture_Coding_Data);
 
 RGBADescriptor::RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height) :
 	VideoDescriptor(sample_rate, width, height),
@@ -346,16 +361,8 @@ RGBADescriptor::RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height
 	_alpha_min_ref(0),
 	_scanning_direction(ScanningDir_LRTB)
 {
-	// these are the "non-standard" ULs.  The standard ones seem to only apply to YCbCr.
-
-	static const UInt8 GC_Uncompressed_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x05, 0x7f, 0x01 };
-	static const mxflib::UL GC_Uncompressed_FrameWrapped_UL(GC_Uncompressed_FrameWrapped_Data);
-	
 	setEssenceContainerLabel(GC_Uncompressed_FrameWrapped_UL);
 
-	static const UInt8 Undefined_Uncompressed_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x01, 0x02, 0x01, 0x7f, 0x00, 0x00, 0x00 };
-	static const mxflib::UL Undefined_Uncompressed_Picture_Coding_UL(Undefined_Uncompressed_Picture_Coding_Data);
-	
 	setPictureEssenceCoding(Undefined_Uncompressed_Picture_Coding_UL);
 }
 
@@ -385,6 +392,30 @@ RGBADescriptor::makeDescriptorObj() const
 	{
 		mxflib::MDObjectPtr pixel_layout = descriptor->AddChild(PixelLayout_UL);
 		
+		assert(pixel_layout->GetClass() == mxflib::TYPEARRAY);
+		
+		// should already have an 8-item default, just need to overwrite
+		int n = 0;
+		
+		for(mxflib::MDObject::iterator o_itr = pixel_layout->begin(); n < _pixel_layout.size() && o_itr != pixel_layout->end(); ++o_itr)
+		{
+			mxflib::MDObjectPtr &layout_item = o_itr->second;
+		
+			assert(layout_item->GetClass() == mxflib::COMPOUND);
+			assert(*layout_item->GetValueType()->GetTypeUL() == RGBALayoutItem_UL);
+			assert(layout_item->GetUInt("Code") == 0);
+			assert(layout_item->GetUInt("Depth") == 0);
+		
+			const RGBALayoutItem &item = _pixel_layout[n++];
+			
+			layout_item->SetUInt("Code", item.code);
+			layout_item->SetUInt("Depth", item.depth);
+		}
+		
+		assert(n == _pixel_layout.size());
+		
+		
+		/*
 		DataChunk buffer(_pixel_layout.size());
 		
 		UInt8 *p = buffer.Data;
@@ -394,9 +425,8 @@ RGBADescriptor::makeDescriptorObj() const
 			*p++ = _pixel_layout[i];
 		}
 		
-		assert(pixel_layout->GetClass() == mxflib::TYPEARRAY);
-		
 		pixel_layout->SetValue(buffer);
+		*/
 	}
 	else
 		assert(false); // pixel layout wasn't set
@@ -420,6 +450,10 @@ MPEGDescriptor::MPEGDescriptor(mxflib::MDObjectPtr descriptor) :
 	_profile_and_level = descriptor->GetUInt(ProfileAndLevel_UL);
 }
 
+// picked this value out of dozens of options in RP224
+static const UInt8 MPEG2_422P_HL_LongGOP_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x03, 0x04, 0x01, 0x02, 0x02, 0x01, 0x04, 0x03, 0x00 };
+static const mxflib::UL MPEG2_422P_HL_LongGOP_UL(MPEG2_422P_HL_LongGOP_Data);
+
 MPEGDescriptor::MPEGDescriptor(Rational sample_rate, UInt32 width, UInt32 height, UInt32 horizontal_subsampling, UInt32 vertical_subsampling) :
 	CDCIDescriptor(sample_rate, width, height, horizontal_subsampling, vertical_subsampling),
 	_single_sequence(false),
@@ -437,10 +471,6 @@ MPEGDescriptor::MPEGDescriptor(Rational sample_rate, UInt32 width, UInt32 height
 	
 	setEssenceContainerLabel(MXFGCMPEGES_UL);
 	
-	// picked this value out of dozens of options in RP224
-	static const UInt8 MPEG2_422P_HL_LongGOP_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x03, 0x04, 0x01, 0x02, 0x02, 0x01, 0x04, 0x03, 0x00 };
-	static const mxflib::UL MPEG2_422P_HL_LongGOP_UL(MPEG2_422P_HL_LongGOP_Data);
-
 	setPictureEssenceCoding(MPEG2_422P_HL_LongGOP_UL);
 }
 
@@ -482,7 +512,7 @@ MPEGDescriptor::makeDescriptorObj() const
 AudioDescriptor::AudioDescriptor(mxflib::MDObjectPtr descriptor) :
 	Descriptor(descriptor)
 {
-	_audio_sample_rate = Rational(descriptor->Child(AudioSamplingRate_UL)->GetInt("Numerator"), descriptor->Child(AudioSamplingRate_UL)->GetInt("Denominator"));
+	_audio_sampling_rate = Rational(descriptor->Child(AudioSamplingRate_UL)->GetInt("Numerator"), descriptor->Child(AudioSamplingRate_UL)->GetInt("Denominator"));
 	_locked_to_video = descriptor->GetUInt(Locked_UL);
 	_audio_ref_level = descriptor->GetUInt(AudioRefLevel_UL);
 	_channel_count = descriptor->GetUInt(ChannelCount_UL);
@@ -494,9 +524,9 @@ AudioDescriptor::AudioDescriptor(mxflib::MDObjectPtr descriptor) :
 		_sound_compression = mxflib::UL(sound_compression->GetData().Data);
 }
 
-AudioDescriptor::AudioDescriptor(Rational sample_rate, Rational audio_sample_rate, UInt32 channel_count, UInt32 quantization_bits) :
+AudioDescriptor::AudioDescriptor(Rational sample_rate, Rational audio_sampling_rate, UInt32 channel_count, UInt32 quantization_bits) :
 	Descriptor(sample_rate),
-	_audio_sample_rate(audio_sample_rate),
+	_audio_sampling_rate(audio_sampling_rate),
 	_locked_to_video(true),
 	_audio_ref_level(0),
 	//_electro_spatial_formulation(),
@@ -510,7 +540,7 @@ AudioDescriptor::AudioDescriptor(Rational sample_rate, Rational audio_sample_rat
 AudioDescriptor::AudioDescriptor(const AudioDescriptor &other) :
 	Descriptor(other)
 {
-	_audio_sample_rate = other._audio_sample_rate;
+	_audio_sampling_rate = other._audio_sampling_rate;
 	_locked_to_video = other._locked_to_video;
 	_audio_ref_level = other._audio_ref_level;
 	_channel_count = other._channel_count;
@@ -523,8 +553,8 @@ AudioDescriptor::makeDescriptorObj() const
 {
 	mxflib::MDObjectPtr descriptor = Descriptor::makeDescriptorObj();
 
-	descriptor->AddChild(AudioSamplingRate_UL)->SetInt("Numerator", _audio_sample_rate.Numerator);
-	descriptor->AddChild(AudioSamplingRate_UL)->SetInt("Denominator", _audio_sample_rate.Denominator);
+	descriptor->AddChild(AudioSamplingRate_UL)->SetInt("Numerator", _audio_sampling_rate.Numerator);
+	descriptor->AddChild(AudioSamplingRate_UL)->SetInt("Denominator", _audio_sampling_rate.Denominator);
 	descriptor->AddChild(Locked_UL)->SetUInt(_locked_to_video);
 	descriptor->AddChild(AudioRefLevel_UL)->SetUInt(_audio_ref_level);
 	descriptor->AddChild(ChannelCount_UL)->SetUInt(_channel_count);
@@ -536,19 +566,44 @@ AudioDescriptor::makeDescriptorObj() const
 	return descriptor;
 }
 
+static const UInt8 MXF_GC_BWF_FrameWrapped_UL_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x06, 0x01, 0x00 };
+static const UL MXF_GC_BWF_FrameWrapped_UL(MXF_GC_BWF_FrameWrapped_UL_Data);
+
+static const UInt8 SMPTE_382M_Default_Uncompressed_Sound_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0a, 0x04, 0x02, 0x02, 0x01, 0x01, 0x00, 0x00, 0x00 };
+static const mxflib::UL SMPTE_382M_Default_Uncompressed_Sound_Coding_UL(SMPTE_382M_Default_Uncompressed_Sound_Coding_Data);
+
+static const UInt8 SMPTE_AIFF_Uncompressed_Sound_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0a, 0x04, 0x02, 0x02, 0x01, 0x7e, 0x00, 0x00, 0x00 };
+static const mxflib::UL SMPTE_AIFF_Uncompressed_Sound_Coding_UL(SMPTE_AIFF_Uncompressed_Sound_Coding_Data);
+
+static const UInt8 SMPTE_Undefined_Sound_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0a, 0x04, 0x02, 0x02, 0x01, 0x7f, 0x00, 0x00, 0x00 };
+static const mxflib::UL SMPTE_Undefined_Sound_Coding_UL(SMPTE_Undefined_Sound_Coding_Data);
+
+// just a sample of what you might put in _channel_assignment
+static const UInt8 SMPTE_320M_8Channel_ModeA_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x09, 0x04, 0x02, 0x02, 0x10, 0x02, 0x01, 0x00, 0x00 };
+static const mxflib::UL SMPTE_320M_8Channel_ModeA_UL(SMPTE_320M_8Channel_ModeA_Data);
+
 WaveAudioDescriptor::WaveAudioDescriptor(mxflib::MDObjectPtr descriptor) :
 	AudioDescriptor(descriptor)
 {
 	_block_align = descriptor->GetUInt(BlockAlign_UL);
 	_avg_bytes_per_sec = descriptor->GetUInt(AvgBps_UL);
+	
+	MDObjectPtr channel_assignment = descriptor->Child(ChannelAssignment_UL);
+	
+	if(channel_assignment)
+		_channel_assignment = mxflib::UL(channel_assignment->GetData().Data);
 }
 
 WaveAudioDescriptor::WaveAudioDescriptor(Rational sample_rate, Rational audio_sample_rate, UInt32 channel_count, UInt32 quantization_bits) :
-	AudioDescriptor(sample_rate, audio_sample_rate, channel_count, quantization_bits),
-	_block_align(3),
-	_avg_bytes_per_sec(144000)
+	AudioDescriptor(sample_rate, audio_sample_rate, channel_count, quantization_bits)
 {
-	assert(false); // not ready yet
+	_block_align = (quantization_bits + 7) / 8;
+	
+	_avg_bytes_per_sec = _block_align * channel_count * audio_sample_rate.Numerator / audio_sample_rate.Denominator;
+	
+	setEssenceContainerLabel(MXF_GC_BWF_FrameWrapped_UL);
+	
+	setSoundCompression(SMPTE_382M_Default_Uncompressed_Sound_Coding_UL);
 }
 
 WaveAudioDescriptor::WaveAudioDescriptor(const WaveAudioDescriptor &other) :
@@ -556,6 +611,7 @@ WaveAudioDescriptor::WaveAudioDescriptor(const WaveAudioDescriptor &other) :
 {
 	_block_align = other._block_align;
 	_avg_bytes_per_sec = other._avg_bytes_per_sec;
+	_channel_assignment = other._channel_assignment;
 }
 	
 
@@ -566,14 +622,21 @@ WaveAudioDescriptor::makeDescriptorObj() const
 
 	descriptor->AddChild(BlockAlign_UL)->SetUInt(_block_align);
 	descriptor->AddChild(AvgBps_UL)->SetUInt(_avg_bytes_per_sec);
+	
+	if(!!_channel_assignment)
+		descriptor->AddChild(ChannelAssignment_UL)->SetValue(_channel_assignment.GetValue(), _channel_assignment.Size());
 
 	return descriptor;
 }
 
+static const UInt8 MXF_GC_AES3_FrameWrapped_UL_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x06, 0x03, 0x00 };
+static const UL MXF_GC_AES3_FrameWrapped_UL(MXF_GC_AES3_FrameWrapped_UL_Data);
 
 AES3Descriptor::AES3Descriptor(mxflib::MDObjectPtr descriptor) :
 	WaveAudioDescriptor(descriptor)
 {
+	assert(getEssenceContainerLabel() == MXF_GC_AES3_FrameWrapped_UL);
+
 	mxflib::MDObjectPtr channel_status_mode_array = descriptor->Child(ChannelStatusMode_UL);
 	
 	if(channel_status_mode_array && channel_status_mode_array->GetClass() == mxflib::TYPEARRAY)
@@ -613,15 +676,13 @@ AES3Descriptor::AES3Descriptor(mxflib::MDObjectPtr descriptor) :
 	}
 }
 
+
 AES3Descriptor::AES3Descriptor(Rational sample_rate, Rational audio_sample_rate, UInt32 channel_count, UInt32 quantization_bits) :
 	WaveAudioDescriptor(sample_rate, audio_sample_rate, channel_count, quantization_bits)
 {
-	assert(false); // not doing anything right here yet
+	setEssenceContainerLabel(MXF_GC_AES3_FrameWrapped_UL);
 	
-	static const UInt8 AES3_Sound_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0a, 0x04, 0x02, 0x02, 0x01, 0x01, 0x00, 0x00, 0x00 };
-	static const mxflib::UL AES3_Sound_Coding_UL(AES3_Sound_Coding_Data);
-	
-	setSoundCompression(AES3_Sound_Coding_UL);
+	setSoundCompression(SMPTE_382M_Default_Uncompressed_Sound_Coding_UL);
 }
 
 AES3Descriptor::AES3Descriptor(const AES3Descriptor &other) :

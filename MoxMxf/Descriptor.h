@@ -39,13 +39,17 @@ namespace MoxMxf
 		
 		virtual DescriptorType getDescriptorType() const = 0;
 		
-		mxflib::UL getEssenceType() const { return _essence_container; }
+		const mxflib::UL & getEssenceContainerLabel() const { return _essence_container; }
+		
+		const Rational & getSampleRate() const { return _sample_rate; } // edit rate, not audio sampling rate
+		
+		void setContainerDuration(Length duration) { _container_duration = duration; }
 
 	  protected:
 		void setEssenceContainerLabel(const mxflib::UL &ul) { _essence_container = ul; }
 		void setCodec(const mxflib::UL &ul) { _codec = ul; }
 	  
-		virtual mxflib::UL getDescriptorUL() const = 0;
+		virtual const mxflib::UL & getDescriptorUL() const = 0;
 		
 	  private:
 		// SMPTE 377M D.1 File descriptor
@@ -97,7 +101,7 @@ namespace MoxMxf
 	  protected:
 		void setPictureEssenceCoding(const mxflib::UL &ul) { _picture_essence_coding = ul; }
 	  
-		virtual mxflib::UL getDescriptorUL() const = 0;
+		virtual const mxflib::UL & getDescriptorUL() const = 0;
 		
 	  private:
 		// SMPTE 377M D.2.1 Generic picture essence descriptor
@@ -152,7 +156,7 @@ namespace MoxMxf
 		};
 		
 	  protected:
-		virtual mxflib::UL getDescriptorUL() const { return mxflib::CDCIEssenceDescriptor_UL; }
+		virtual const mxflib::UL & getDescriptorUL() const { return mxflib::CDCIEssenceDescriptor_UL; }
 		
 	  private:
 		// SMPTE 377M D.2.2 CDCI (Color-difference component image) picture essence descriptor
@@ -184,12 +188,22 @@ namespace MoxMxf
 		virtual VideoCodec getVideoCodec() const { return VideoCodecUncompressedRGB; }
 		
 		// see SMPTE 377M E.2.46 (page 99)
-		typedef std::vector<UInt8> PixelLayout;
-		void setPixelLayout(const PixelLayout &layout) { _pixel_layout = layout; }
-		const PixelLayout & getPixelLayout() { return _pixel_layout; }
+		typedef struct RGBALayoutItem
+		{
+			UInt8 code;
+			UInt8 depth;
+			
+			RGBALayoutItem(UInt8 c = 0, UInt8 d = 0) : code(c), depth(d) {}
+		} RGBALayoutItem;
+		
+		// mxflib handles padding this out to its fixed 8-item size
+		typedef std::vector<RGBALayoutItem> RGBALayout;
+		
+		void setPixelLayout(const RGBALayout &layout) { _pixel_layout = layout; }
+		const RGBALayout & getPixelLayout() { return _pixel_layout; }
 		
 	  protected:
-		virtual mxflib::UL getDescriptorUL() const { return mxflib::RGBAEssenceDescriptor_UL; }
+		virtual const mxflib::UL & getDescriptorUL() const { return mxflib::RGBAEssenceDescriptor_UL; }
 	
 	  private:
 		enum {
@@ -208,7 +222,7 @@ namespace MoxMxf
 		UInt32 _alpha_max_ref;
 		UInt32 _alpha_min_ref;
 		UInt8 _scanning_direction;
-		PixelLayout _pixel_layout;
+		RGBALayout _pixel_layout;
 		// palette
 		// palette layout
 	};
@@ -237,7 +251,7 @@ namespace MoxMxf
 		};
 		
 	  protected:
-		virtual mxflib::UL getDescriptorUL() const { return mxflib::MPEG2VideoDescriptor_UL; }
+		virtual const mxflib::UL & getDescriptorUL() const { return mxflib::MPEG2VideoDescriptor_UL; }
 		
 	  private:
 		// SMPTE ST 381-2:2011 10.2 MPEG Video Sescriptor
@@ -252,12 +266,13 @@ namespace MoxMxf
 		UInt32 _bit_rate;
 		UInt8 _profile_and_level;
 	};
+	
 
 	class AudioDescriptor : public Descriptor
 	{
 	  public:
 		AudioDescriptor(mxflib::MDObjectPtr descriptor);
-		AudioDescriptor(Rational sample_rate, Rational audio_sample_rate, UInt32 channel_count, UInt32 quantization_bits);
+		AudioDescriptor(Rational sample_rate, Rational audio_sampling_rate, UInt32 channel_count, UInt32 quantization_bits);
 		AudioDescriptor(const AudioDescriptor &other);
 		virtual ~AudioDescriptor() {}
 		
@@ -270,20 +285,25 @@ namespace MoxMxf
 		
 		typedef enum AudioCodec
 		{
+			AudioCodecUncompressedPCM,
 			AudioCodecAES3,
 			AudioCodecUnknown
 		};
 		
 		virtual AudioCodec getAudioCodec() const = 0;
 		
+		const Rational & getAudioSamplingRate() const { return _audio_sampling_rate; }
+		UInt32 getChannelCount() const { return _channel_count; }
+		UInt32 getBitDepth() const { return _quantization_bits; }
+		
 	  protected:
 		void setSoundCompression(const mxflib::UL &ul) { _sound_compression = ul; }
 	  
-		virtual mxflib::UL getDescriptorUL() const = 0;
+		virtual const mxflib::UL & getDescriptorUL() const = 0;
 		
 	  private:
 		// SMPTE 377M D.3 Generic sound essence descriptor
-		Rational _audio_sample_rate;
+		Rational _audio_sampling_rate;
 		bool _locked_to_video;
 		Int8 _audio_ref_level;
 		//Uint8 _electro_spatial_formulation;
@@ -292,6 +312,7 @@ namespace MoxMxf
 		//Int8 _dial_norm;
 		mxflib::UL _sound_compression;
 	};
+
 
 	class WaveAudioDescriptor : public AudioDescriptor
 	{
@@ -303,20 +324,22 @@ namespace MoxMxf
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;
 		
-		virtual UInt8 getGCItemType() const = 0;
-		virtual UInt8 getGCElementType() const = 0;
+		virtual UInt8 getGCItemType() const { return 0x16; } // SMPTE 382M-2007 6.5 (i.e. "GC Sound")
+		virtual UInt8 getGCElementType() const { return 0x01; } // BWF frame-wrapped
 		
-		virtual AudioCodec getAudioCodec() const = 0;
+		virtual AudioCodec getAudioCodec() const { return AudioCodecUncompressedPCM; }
 
 	  protected:
-		virtual mxflib::UL getDescriptorUL() const = 0;
+		virtual const mxflib::UL & getDescriptorUL() const { return mxflib::WaveAudioDescriptor_UL; }
 		
 	  private:
 		// SMPTE 382M-2007 A.1 Wave Audio Essence Descriptor
 		UInt16 _block_align;
 		UInt32 _avg_bytes_per_sec;
+		mxflib::UL _channel_assignment;
 		// others...
 	};
+	
 
 	class AES3Descriptor : public WaveAudioDescriptor
 	{
@@ -328,11 +351,14 @@ namespace MoxMxf
 		
 		virtual mxflib::MDObjectPtr makeDescriptorObj() const;
 		
-		virtual UInt8 getGCItemType() const { return 0x16; } // SMPTE 382M-2007 6.5 (i.e. "GC Sound")
-		virtual UInt8 getGCElementType() const { return 0x03; } // AES frame wrapped
+		virtual UInt8 getGCElementType() const { return 0x03; } // AES3 frame wrapped
 		
 		virtual AudioCodec getAudioCodec() const { return AudioCodecAES3; }
 		
+	  protected:
+		virtual const mxflib::UL & getDescriptorUL() const { return mxflib::AES3PCMDescriptor_UL; }
+		
+	  private:
 		enum {
 			ChannelStatusMode_None = 0,
 			ChannelStatusMode_Minimum = 1,
@@ -342,14 +368,11 @@ namespace MoxMxf
 			ChannelStatusMode_Essence = 5
 		};
 		
-	  protected:
-		virtual mxflib::UL getDescriptorUL() const { return mxflib::AES3PCMDescriptor_UL; }
-		
-	  private:
 		// SMPTE 382M-2007 A.3 Wave Audio Essence Descriptor
 		std::vector<UInt8> _channel_status_mode;
 		std::vector< std::vector<unsigned char> > _fixed_channel_status_data;
 	};
+	
 } // namespace
 
 #endif

@@ -21,9 +21,8 @@ static void
 initialize(Header &header,
 		int width,
 		int height,
-		const Rational &pixelAspectRatio,
 		const Rational &frameRate,
-		float sampleRate,
+		const Rational &sampleRate,
 		VideoCompression videoCompression,
 		AudioCompression audioCompression,
 		int duration,
@@ -34,23 +33,23 @@ initialize(Header &header,
 	const Box2i dispW = Box2i(V2i(0, 0), V2i(width - 1, height - 1));
 
     header.insert("displayWindow", Box2iAttribute(dispW));
-    header.insert("pixelAspectRatio", RationalAttribute(pixelAspectRatio));
 	header.insert("frameRate", RationalAttribute(frameRate));
-	header.insert("sampleRate", FloatAttribute(sampleRate));
+	header.insert("sampleRate", RationalAttribute(sampleRate));
 	header.insert("videoCompression", VideoCompressionAttribute(videoCompression));
 	header.insert("audioCompression", AudioCompressionAttribute(audioCompression));
 	header.insert("channels", ChannelListAttribute());
 	header.insert("audiochannels", AudioChannelListAttribute());
 	header.insert("duration", IntAttribute(duration));
 	header.insert("audioDuration", Int64Attribute(audioDuration));
+	
+    header.insert("pixelAspectRatio", RationalAttribute(Rational(1, 1)));
 }
 
 
 Header::Header(int width,
 			int height,
-			const Rational &pixelAspectRatio,
 			const Rational &frameRate,
-			float sampleRate,
+			const Rational &sampleRate,
 			VideoCompression videoCompression,
 			AudioCompression audioCompression,
 			int duration,
@@ -59,7 +58,6 @@ Header::Header(int width,
 	initialize(*this,
 			width,
 			height,
-			pixelAspectRatio,
 			frameRate,
 			sampleRate,
 			videoCompression,
@@ -377,18 +375,18 @@ Header::frameRate () const
 }
 
 
-float &	
+Rational &	
 Header::sampleRate ()
 {
-    return static_cast <FloatAttribute &>
+    return static_cast <RationalAttribute &>
 	((*this)["sampleRate"]).value();
 }
 
 
-const float &
+const Rational &
 Header::sampleRate () const
 {
-    return static_cast <const FloatAttribute &>
+    return static_cast <const RationalAttribute &>
 	((*this)["sampleRate"]).value();
 }
 

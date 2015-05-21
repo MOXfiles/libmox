@@ -28,6 +28,15 @@ namespace MoxFiles
 	
 	using MoxMxf::IOStream;
 	
+	using MoxMxf::UInt64;
+	using MoxMxf::UInt32;
+	using MoxMxf::UInt16;
+	using MoxMxf::UInt8;
+	using MoxMxf::Int64;
+	using MoxMxf::Int32;
+	using MoxMxf::Int16;
+	using MoxMxf::Int8;
+	
 	//using Imath::V2s;
 	using Imath::V2i;
 	//using Imath::V2f;
@@ -51,7 +60,6 @@ namespace MoxFiles
 	//using Imath::Box3d;
 	
 	using Imf::Name;
-	using Imf::Int64;
 
 } // namespace
 

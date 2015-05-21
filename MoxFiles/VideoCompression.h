@@ -15,6 +15,7 @@ namespace MoxFiles
 	enum VideoCompression
 	{
 		UNCOMPRESSED  = 0,	// no compression
+		MPEG,
 		
 
 		NUM_VIDEO_COMPRESSION_METHODS	// number of different compression methods

@@ -37,6 +37,43 @@ AudioChannelList::size() const
 }
 
 
+SampleType
+AudioChannelList::type() const
+{
+#ifdef NDEBUG
+	for(ConstIterator i = begin(); i != end(); ++i)
+	{
+		const AudioChannel &chan = i.channel();
+		
+		return chan.type;
+	}
+#else
+	SampleType typ;
+
+	bool first = true;
+
+	for(ConstIterator i = begin(); i != end(); ++i)
+	{
+		const AudioChannel &chan = i.channel();
+		
+		if(first)
+		{
+			typ = chan.type;
+			
+			first = false;
+		}
+		else
+		{
+			assert(typ = chan.type);
+		}
+	}
+	
+	return typ;
+#endif
+	
+	throw MoxMxf::LogicExc("No channels in ChannelList");
+}
+
 void	
 AudioChannelList::insert (const char name[], const AudioChannel &channel)
 {
@@ -97,6 +134,45 @@ AudioChannelList::operator [] (const char name[]) const
 	//THROW (IEX_NAMESPACE::ArgExc, "Cannot find image channel \"" << name << "\".");
 
     return i->second;
+}
+
+
+std::vector<Name>
+StandardAudioChannelList(unsigned int count)
+{
+	std::vector<Name> chans;
+	
+	if(count == 1)
+	{
+		chans.push_back("Mono");
+	}
+	else if(count == 2)
+	{
+		chans.push_back("Left");
+		chans.push_back("Right");
+	}
+	else if(count == 6)
+	{
+		chans.push_back("Left");
+		chans.push_back("Right");
+		chans.push_back("Center");
+		chans.push_back("RearLeft");
+		chans.push_back("RearRight");
+		chans.push_back("LFE");
+	}
+	else
+	{
+		for(int i = 1; i <= count; i++)
+		{
+			std::stringstream ss;
+			
+			ss << "Channel" << i;
+			
+			chans.push_back(ss.str().c_str());
+		}
+	}
+	
+	return chans;
 }
 
 
@@ -208,11 +284,11 @@ AudioChannelList::operator == (const AudioChannelList &other) const
 
     while (i != end() && j != other.end())
     {
-	if (!(i.channel() == j.channel()))
-	    return false;
+		if (!(i.channel() == j.channel()))
+			return false;
 
-	++i;
-	++j;
+		++i;
+		++j;
     }
 
     return i == end() && j == other.end();

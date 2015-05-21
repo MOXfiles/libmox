@@ -104,7 +104,7 @@ OutputFile::OutputFile(IOStream &outfile, const EssenceList &essence, Rational E
 		const UInt32 track_number = e->first;
 		const Descriptor *descriptor = e->second;
 		
-		_metadata->AddEssenceType( descriptor->getEssenceType() );
+		_metadata->AddEssenceType( descriptor->getEssenceContainerLabel() );
 		
 		
 		mxflib::TrackPtr source_track, material_track;

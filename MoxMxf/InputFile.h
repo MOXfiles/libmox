@@ -28,6 +28,7 @@ namespace MoxMxf
 		~FramePart() {}
 		
 		mxflib::DataChunk & getData();
+		Length getDataSize() { return _obj->GetLength(); } // GetLength() should be const
 
 	  private:
 		mxflib::KLVObjectPtr _obj;

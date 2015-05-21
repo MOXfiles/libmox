@@ -23,7 +23,7 @@ PlatformIOStream::PlatformIOStream(FSIORefNum refNum) :
 	_refNum(refNum),
 	_I_opened(false)
 {
-	assert(FileTell() == 0);
+	FileSeek(0);
 }
 
 
@@ -37,8 +37,18 @@ PlatformIOStream::PlatformIOStream(const char *filepath, Cababilities abilities)
 		throw IoExc ("Couldn't make CFURLRef.");
 	
 	FSRef fsRef;
-	const Boolean file_exists = CFURLGetFSRef(url, &fsRef);
+	Boolean file_exists = CFURLGetFSRef(url, &fsRef);
 	CFRelease(url);
+	
+	if(abilities == ReadWrite && file_exists)
+	{
+		result = FSDeleteObject(&fsRef);
+		
+		if(result != noErr)
+			throw IoExc("Could not delete old file.");
+		
+		file_exists = false;
+	}
 	
 	if(!file_exists)
 	{
@@ -127,8 +137,18 @@ PlatformIOStream::PlatformIOStream(const uint16_t *filepath, Cababilities abilit
 		throw IoExc("Couldn't make CFURLRef.");
 	
 	FSRef fsRef;
-	const Boolean file_exists = CFURLGetFSRef(url, &fsRef);
+	Boolean file_exists = CFURLGetFSRef(url, &fsRef);
 	CFRelease(url);
+	
+	if(abilities == ReadWrite && file_exists)
+	{
+		result = FSDeleteObject(&fsRef);
+		
+		if(result != noErr)
+			throw IoExc("Could not delete old file.");
+		
+		file_exists = false;
+	}
 	
 	if(!file_exists)
 	{

@@ -24,11 +24,10 @@ class Header
   public:
 	Header(int width = 64,
 			int height = 64,
-			const Rational &pixelAspectRatio = Rational(1, 1),
 			const Rational &frameRate = Rational(24, 1),
-			float sampleRate = 0.f,
+			const Rational &sampleRate = Rational(0, 1),
 			VideoCompression videoCompression = UNCOMPRESSED,
-			AudioCompression audioCompression = AES3,
+			AudioCompression audioCompression = PCM,
 			int duration = 0,
 			Int64 audioDuration = 0);
 			
@@ -160,8 +159,8 @@ class Header
     Rational &			frameRate ();
     const Rational &	frameRate () const;
 	
-    float &				sampleRate ();
-    const float &		sampleRate () const;
+    Rational &			sampleRate ();
+    const Rational &	sampleRate () const;
 	
     ChannelList &		channels ();
     const ChannelList &	channels () const;

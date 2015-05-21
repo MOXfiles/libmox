@@ -31,6 +31,7 @@ FramePart::getData()
 		
 		assert(size > 0);
 		assert(data.Size == size);
+		assert(data.Size == getDataSize());
 		assert(data.Data != NULL);
 	}
 	

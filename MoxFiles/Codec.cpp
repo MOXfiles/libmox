@@ -10,6 +10,10 @@
 #include <MoxFiles/Codec.h>
 
 #include <MoxFiles/UncompressedCodec.h>
+#include <MoxFiles/MPEGCodec.h>
+
+#include <MoxFiles/UncompressedPCMCodec.h>
+
 
 namespace MoxFiles
 {
@@ -60,6 +64,8 @@ VideoCodec::storeFrame(FrameBufferPtr frm)
 }
 
 
+typedef std::map<VideoCompression, VideoCodecInfo *> VideoCodecList;
+	
 class VideoCodecListStorage
 {
   public:
@@ -91,6 +97,7 @@ getVideoCodecInfo(VideoCompression videoCompression)
 	if( codecList.empty() )
 	{
 		codecList[UNCOMPRESSED] = new UncompressedCodecInfo;
+		codecList[MPEG] = new MPEGCodecInfo;
 	}
 	
 	if(codecList.find(videoCompression) == codecList.end())
@@ -99,17 +106,122 @@ getVideoCodecInfo(VideoCompression videoCompression)
 	return *codecList[videoCompression];
 }
 
-/*
+
 const VideoCodecInfo &
-getVideoCodecInfo(MoxMxf::VideoDescriptor::VideoCodec videoCodec)
+getVideoCodecInfo(MoxMxf::VideoDescriptor::VideoCodec codec)
 {
-	if(videoCodec == MoxMxf::VideoDescriptor::VideoCodecUncompressedRGB)
+	if(codec == MoxMxf::VideoDescriptor::VideoCodecUncompressedRGB)
 	{
 		return getVideoCodecInfo(UNCOMPRESSED);
 	}
+	else if(codec == MoxMxf::VideoDescriptor::VideoCodecMPEG2)
+	{
+		return getVideoCodecInfo(MPEG);
+	}
 	
-	throw MoxMxf::LogicExc("Requested unknown video codec.");
+	throw MoxMxf::InputExc("Unknown video codec");
 }
-*/
+
+
+DataChunkPtr
+AudioCodec::getNextData()
+{
+	DataChunkPtr dat;
+	
+	if(!_data_queue.empty())
+	{
+		dat = _data_queue.front();
+		
+		_data_queue.pop();
+	}
+	
+	return dat;
+}
+
+
+AudioBufferPtr
+AudioCodec::getNextBuffer()
+{
+	AudioBufferPtr buf;
+	
+	if(!_audio_queue.empty())
+	{
+		buf = _audio_queue.front();
+		
+		_audio_queue.pop();
+	}
+	
+	return buf;
+}
+
+
+void
+AudioCodec::storeData(DataChunkPtr dat)
+{
+	_data_queue.push(dat);
+}
+
+
+void
+AudioCodec::storeBuffer(AudioBufferPtr buf)
+{
+	_audio_queue.push(buf);
+}
+
+
+typedef std::map<AudioCompression, AudioCodecInfo *> AudioCodecList;
+	
+class AudioCodecListStorage
+{
+  public:
+	AudioCodecListStorage() {}
+	~AudioCodecListStorage();
+	
+	AudioCodecList & getCodecList() { return _audio_codec_list; }
+
+  private:
+	AudioCodecList _audio_codec_list;
+};
+
+AudioCodecListStorage::~AudioCodecListStorage()
+{
+	for(AudioCodecList::iterator i = _audio_codec_list.begin(); i != _audio_codec_list.end(); ++i)
+	{
+		delete i->second;
+	}
+}
+
+
+const AudioCodecInfo &
+getAudioCodecInfo(AudioCompression audioCompression)
+{
+	static AudioCodecListStorage codecListStorage;
+	
+	AudioCodecList &codecList = codecListStorage.getCodecList();
+	
+	if( codecList.empty() )
+	{
+		codecList[PCM] = new UncompressedPCMCodecInfo;
+	}
+	
+	if(codecList.find(audioCompression) == codecList.end())
+		throw MoxMxf::ArgExc("Requested AudioCodecInfo for unknown compression.");
+	
+	return *codecList[audioCompression];
+}
+
+
+const AudioCodecInfo &
+getAudioCodecInfo(MoxMxf::AudioDescriptor::AudioCodec codec)
+{
+	if(codec == MoxMxf::AudioDescriptor::AudioCodecUncompressedPCM ||
+		codec == MoxMxf::AudioDescriptor::AudioCodecAES3)
+	{
+		return getAudioCodecInfo(PCM);
+	}
+	
+	throw MoxMxf::InputExc("Unknown video codec");
+}
+
 
 } // namespace

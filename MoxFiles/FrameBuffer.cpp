@@ -64,7 +64,7 @@ class FillTask : public Task
 
   private:
 	template <typename T>
-	void FillRow(char *origin, const T value, ptrdiff_t xStride, const int width);
+	static void FillRow(char *origin, const T value, ptrdiff_t xStride, const int width);
   
   private:
 	const Slice &_slice;
@@ -559,7 +559,7 @@ copySlice(TaskGroup &taskGroup,
 }
 
 void
-FrameBuffer::copyFromFrame(const FrameBuffer &other)
+FrameBuffer::copyFromFrame(const FrameBuffer &other, bool fillMissing)
 {
 	if(_dataWindow.min.x < other._dataWindow.min.x ||
 		_dataWindow.min.y < other._dataWindow.min.y ||
@@ -571,9 +571,13 @@ FrameBuffer::copyFromFrame(const FrameBuffer &other)
 		
 		for(ConstIterator i = begin(); i != end(); ++i)
 		{
+			const string &name = i.name();
 			const Slice &slice = i.slice();
 			
-			fillSlice(taskGroup, slice, _dataWindow);
+			if(fillMissing || other.findSlice(name))
+			{
+				fillSlice(taskGroup, slice, _dataWindow);
+			}
 		}
 	}
 	
@@ -599,7 +603,7 @@ FrameBuffer::copyFromFrame(const FrameBuffer &other)
 				// copy
 				copySlice(taskGroup, slice, *other_slice, copyBox);
 			}
-			else
+			else if(fillMissing)
 			{
 				// fill
 				fillSlice(taskGroup, slice, copyBox);

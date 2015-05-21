@@ -210,9 +210,14 @@ SoundTrack::SoundTrack(mxflib::TrackPtr track) :
 	
 	if(descriptor)
 	{
-		if(*descriptor->GetUL() == AES3PCMDescriptor_UL)
+		if(descriptor->IsA(WaveAudioDescriptor_UL))
 		{
-			_descriptor = new AES3Descriptor(descriptor);
+			if(descriptor->IsA(AES3PCMDescriptor_UL))
+			{
+				_descriptor = new AES3Descriptor(descriptor);
+			}
+			else
+				_descriptor = new WaveAudioDescriptor(descriptor);
 		
 			//_channels = descriptor->Child(ChannelCount_UL)->GetUInt();
 			//_bit_depth = descriptor->Child(QuantizationBits_UL)->GetUInt();

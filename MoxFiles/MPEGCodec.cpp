@@ -1,0 +1,105 @@
+/*
+ *  MPEGCodec.cpp
+ *  MoxFiles
+ *
+ *  Created by Brendan Bolles on 5/12/15.
+ *  Copyright 2015 fnord. All rights reserved.
+ *
+ */
+
+#include <MoxFiles/MPEGCodec.h>
+
+
+namespace MoxFiles
+{
+
+MPEGCodec::MPEGCodec(const Header &header, const ChannelList &channels) :
+	VideoCodec(header, channels),
+	_descriptor(header.frameRate(), header.width(), header.height(), 1, 1)
+{
+	throw MoxMxf::NoImplExc("Implement!");
+}
+
+
+MPEGCodec::MPEGCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, ChannelList &channels) :
+	VideoCodec(descriptor, header, channels),
+	_descriptor(dynamic_cast<MoxMxf::MPEGDescriptor &>(*descriptor))
+{
+	assert(header.width() == _descriptor.getWidth());
+	assert(header.height() == _descriptor.getHeight());
+	
+	channels.insert("R", Channel(MoxFiles::UINT8));
+	channels.insert("G", Channel(MoxFiles::UINT8));
+	channels.insert("B", Channel(MoxFiles::UINT8));
+}
+
+
+MPEGCodec::~MPEGCodec()
+{
+
+}
+
+
+void
+MPEGCodec::compress(FrameBufferPtr frame)
+{
+	throw MoxMxf::NoImplExc("This is a fake codec");
+}
+
+
+void
+MPEGCodec::decompress(const DataChunk &data)
+{
+	const int channels = 3;
+	const size_t bytes_per_channel = sizeof(unsigned char);
+	
+	const UInt32 width = _descriptor.getWidth();
+	const UInt32 height = _descriptor.getHeight();
+	
+	const ptrdiff_t stride = bytes_per_channel * channels;
+	const size_t rowbytes = width * stride;
+	const size_t data_size = rowbytes * height;
+	
+	DataChunkPtr buf_data = new DataChunk(data_size);
+	
+	char *data_origin = (char *)buf_data->Data;
+	
+	
+	
+	FrameBufferPtr buf = new FrameBuffer(width, height);
+	
+	buf->insert("R", Slice(MoxFiles::UINT8, data_origin + (bytes_per_channel * 0), stride, rowbytes));
+	buf->insert("G", Slice(MoxFiles::UINT8, data_origin + (bytes_per_channel * 1), stride, rowbytes));
+	buf->insert("B", Slice(MoxFiles::UINT8, data_origin + (bytes_per_channel * 2), stride, rowbytes));
+	
+	memset(data_origin, 0, data_size);
+	
+	buf->attachData(buf_data);
+	
+	
+	storeFrame(buf);
+}
+
+
+ChannelCapabilities
+MPEGCodecInfo::getChannelCapabilites() const
+{
+	return Channels_RGB;
+}
+
+
+VideoCodec *
+MPEGCodecInfo::createCodec(const Header &header, const ChannelList &channels) const
+{
+	return new MPEGCodec(header, channels);
+}
+
+
+VideoCodec *
+MPEGCodecInfo::createCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, ChannelList &channels) const
+{
+	return new MPEGCodec(descriptor, header, channels);
+}
+
+
+} // namespace

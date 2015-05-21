@@ -122,14 +122,16 @@ class FrameBuffer : public RefCount<FrameBuffer>
 	FrameBuffer(int width, int height);
 	~FrameBuffer() {}
 	
-	void copyFromFrame(const FrameBuffer &other);
+	void copyFromFrame(const FrameBuffer &other, bool fillMissing = true);
 	
-	void attachData(DataChunkPtr dat) { _data = dat; }
+	void attachData(DataChunkPtr dat) { _data.push_back(dat);  }
 	
 	
 	const Box2i & displayWindow () const { return _dataWindow; }
 	int width() const { return (_dataWindow.max.x - _dataWindow.min.x + 1); }
 	int height() const { return (_dataWindow.max.y - _dataWindow.min.y + 1); }
+	
+	size_t size() const { return _map.size(); }
 
     //------------
     // Add a slice
@@ -194,7 +196,7 @@ class FrameBuffer : public RefCount<FrameBuffer>
 	
 	const Box2i					_dataWindow;
 	
-	DataChunkPtr				_data;
+	std::list<DataChunkPtr>		_data;
 };
 
 typedef SmartPtr<FrameBuffer> FrameBufferPtr;

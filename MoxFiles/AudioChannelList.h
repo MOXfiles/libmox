@@ -41,6 +41,9 @@ class AudioChannelList
 
 	size_t			size() const;
 	
+	SampleType		type() const;
+	
+	
     //--------------
     // Add a channel
     //--------------
@@ -118,6 +121,9 @@ class AudioChannelList
 
     AudioChannelMap		_map;
 };
+
+
+std::vector<Name> StandardAudioChannelList(unsigned int count);
 
 
 class AudioChannelList::Iterator

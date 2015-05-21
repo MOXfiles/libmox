@@ -29,6 +29,9 @@ namespace MoxFiles
 		
 		void getFrame(int frameNumber, FrameBuffer &frameBuffer);
 		
+		void seekAudio(UInt64 sampleNum) { _sample_num = sampleNum; }
+		void readAudio(UInt64 samples, AudioBuffer &buffer);
+		
 	  private:
 		MoxMxf::InputFile _mxf_file;
 		MoxMxf::SID _bodySID;
@@ -36,17 +39,35 @@ namespace MoxFiles
 		
 		Header _header;
 		
-		typedef struct CodecUnit
+		typedef struct VideoCodecUnit
 		{
 			ChannelList channelList;
 			VideoCodec *codec;
 			MoxMxf::TrackNum trackNumber;
 			
-			CodecUnit() : codec(NULL) {}
-			CodecUnit(ChannelList ch, VideoCodec *co, MoxMxf::TrackNum tr) : channelList(ch), codec(co), trackNumber(tr) {}
-		} CodecUnit;
+			VideoCodecUnit() : codec(NULL) {}
+			VideoCodecUnit(ChannelList ch, VideoCodec *co, MoxMxf::TrackNum tr) : channelList(ch), codec(co), trackNumber(tr) {}
+		} VideoCodecUnit;
 		
-		std::list<CodecUnit> _codec_units;
+		std::list<VideoCodecUnit> _video_codec_units;
+		
+		
+		typedef struct AudioCodecUnit
+		{
+			AudioChannelList channelList;
+			std::map<Name, Name> channel_map;
+			AudioCodec *codec;
+			MoxMxf::TrackNum trackNumber;
+			
+			AudioCodecUnit() : codec(NULL) {}
+			AudioCodecUnit(AudioChannelList ch, AudioCodec *co, MoxMxf::TrackNum tr) : channelList(ch), codec(co), trackNumber(tr) {}
+		
+		} AudioCodecUnit;
+		
+		std::list<AudioCodecUnit> _audio_codec_units;
+		
+		
+		UInt64 _sample_num;
 	};
 
 } // namespace

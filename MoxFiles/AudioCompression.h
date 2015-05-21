@@ -14,7 +14,7 @@ namespace MoxFiles
 {
 	enum AudioCompression
 	{
-		AES3 = 0,	// uncompressed audio
+		PCM = 0,	// uncompressed audio
 		
 
 		NUM_AUDIO_COMPRESSION_METHODS	// number of different compression methods

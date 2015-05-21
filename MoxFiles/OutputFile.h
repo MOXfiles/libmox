@@ -14,6 +14,7 @@
 
 #include <MoxFiles/Codec.h>
 #include <MoxFiles/FrameBuffer.h>
+#include <MoxFiles/AudioBuffer.h>
 
 #include <MoxMxf/OutputFile.h>
 
@@ -26,23 +27,42 @@ namespace MoxFiles
 		OutputFile(IOStream &outfile, const Header &header);
 		~OutputFile();
 		
-		void pushFrame(const FrameBufferPtr frame);
+		void pushFrame(const FrameBuffer &frame);
+		
+		void pushAudio(const AudioBuffer &audio);
 	  
 	  private:
 		Header _header;
 		MoxMxf::OutputFile *_mxf_file;
 		
-		typedef struct CodecUnit
+		typedef struct VideoCodecUnit
 		{
 			ChannelList channelList;
 			VideoCodec *codec;
 			MoxMxf::TrackNum trackNumber;
 			
-			CodecUnit() : codec(NULL) {}
-			CodecUnit(ChannelList ch, VideoCodec *co, MoxMxf::TrackNum tr) : channelList(ch), codec(co), trackNumber(tr) {}
-		} CodecUnit;
+			VideoCodecUnit() : codec(NULL) {}
+			VideoCodecUnit(ChannelList ch, VideoCodec *co, MoxMxf::TrackNum tr) : channelList(ch), codec(co), trackNumber(tr) {}
+		} VideoCodecUnit;
 		
-		std::list<CodecUnit> _codec_units;
+		std::list<VideoCodecUnit> _video_codec_units;
+		
+		
+		typedef struct AudioCodecUnit
+		{
+			AudioChannelList channelList;
+			AudioCodec *codec;
+			MoxMxf::TrackNum trackNumber;
+			
+			AudioBufferPtr audioBuffer;
+			
+			AudioCodecUnit() : codec(NULL) {}
+			AudioCodecUnit(AudioChannelList ch, AudioCodec *co, MoxMxf::TrackNum tr) : channelList(ch), codec(co), trackNumber(tr) {}
+		} AudioCodecUnit;
+		
+		std::list<AudioCodecUnit> _audio_codec_units;
+		
+		int _audio_frame;
 	};
 
 } // namespace
