@@ -42,12 +42,13 @@ AudioBuffer::AudioBuffer(UInt64 length) :
 }
 
 
-AudioBuffer::AudioBuffer(const AudioBuffer &other)
+AudioBuffer::AudioBuffer(const AudioBuffer &other) :
+	_map(other._map),
+	_length(other._length),
+	_readHeads(other._readHeads),
+	_data(other._data)
 {
-	_map = other._map;
-	_length = other._length;
-	_readHeads = other._readHeads;
-	_data = other._data;
+
 }
 
 
@@ -85,6 +86,15 @@ AudioBuffer::fastForward(const std::string &name, Int64 samples)
 	fastForward(name.c_str(), samples);
 }
 
+
+void
+AudioBuffer::rewind()
+{
+	for(ReadHeads::iterator i = _readHeads.begin(); i != _readHeads.end(); ++i)
+	{
+		i->second = 0;
+	}
+}
 
 
 #define DECLARE_NEW_32BIT_TYPE(class_name) \
@@ -460,7 +470,7 @@ AudioBuffer::readFromBuffer(AudioBuffer &other, UInt64 samples, bool fillMissing
 
 
 void
-AudioBuffer::copyFromConstBuffer(const AudioBuffer &other, UInt64 samples, bool fillMissing)
+AudioBuffer::copyFromBuffer(const AudioBuffer &other, UInt64 samples, bool fillMissing)
 {
 	TaskGroup taskGroup;
 	
@@ -730,28 +740,31 @@ AudioBuffer::remaining(const string &name) const
 AudioBufferPtr
 MakeAudioBufferType(const AudioBuffer &buffer, SampleType type)
 {
+	AudioBuffer source_buf = buffer;
+	
+	source_buf.rewind();
+
 	const UInt64 length = buffer.length();
 	
-	AudioBufferPtr buf = new AudioBuffer(length);
+	AudioBufferPtr dest_buf = new AudioBuffer(length);
 	
 	for(AudioBuffer::ConstIterator i = buffer.begin(); i != buffer.end(); ++i)
 	{
 		const Name &name = i.name();
-		const AudioSlice &slice = i.slice();
 		
 		const ptrdiff_t stride = SampleSize(type);
 		const size_t channel_data_size = stride * length;
 
 		DataChunkPtr chan_data = new DataChunk(channel_data_size);
 		
-		buf->insert(name.text(), AudioSlice(type, (char *)chan_data->Data, stride));
+		dest_buf->insert(name.text(), AudioSlice(type, (char *)chan_data->Data, stride));
 		
-		buf->attachData(chan_data);
+		dest_buf->attachData(chan_data);
 	}
 	
-	buf->copyFromBuffer(buffer);
+	dest_buf->copyFromBuffer(source_buf);
 	
-	return buf;
+	return dest_buf;
 }
 
 

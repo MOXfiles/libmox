@@ -213,20 +213,39 @@ UncompressedPCMCodec::compress(const AudioBuffer &audio)
 			throw MoxMxf::LogicExc("Bad bit depth");
 	}
 	
-	AudioBufferPtr converted_audio = MakeAudioBufferType(audio, sampleType);
+	bool input_matches = true;
+	
+	for(AudioBuffer::ConstIterator i = audio.begin(); i != audio.end(); ++i)
+	{
+		const AudioSlice &slice = i.slice();
+		
+		if(slice.type != sampleType)
+			input_matches = false;
+	}
+	
+	assert(input_matches); // currently converting as soon as the audio is pushed, so it should match here
+	
+	AudioBufferPtr converted_audio;
+	
+	if(!input_matches)
+	{
+		converted_audio = MakeAudioBufferType(audio, sampleType);
+	}
+	
+	const AudioBuffer &audio_buf = (input_matches ? audio : *converted_audio);
 	
 	
 	const UInt32 channels = _descriptor.getChannelCount();
 	
-	assert(channels == converted_audio->size());
+	assert(channels == audio_buf.size());
 	
-	const UInt64 length = converted_audio->length();
+	const UInt64 length = audio_buf.length();
 	const UInt64 samples = length * channels;
 	
 	const Rational &sample_rate = _descriptor.getSampleRate();
 	const Rational &audio_sampling_rate = _descriptor.getAudioSamplingRate();
 	
-	assert(samples == (audio_sampling_rate.Numerator * sample_rate.Denominator) / (sample_rate.Numerator * audio_sampling_rate.Denominator));
+	assert(samples == (channels * audio_sampling_rate.Numerator * sample_rate.Denominator) / (sample_rate.Numerator * audio_sampling_rate.Denominator));
 	
 	
 	
@@ -248,7 +267,7 @@ UncompressedPCMCodec::compress(const AudioBuffer &audio)
 		{	
 			const char *name = channel_list[i].text();
 			
-			const AudioSlice *slice = converted_audio->findSlice(name);
+			const AudioSlice *slice = audio_buf.findSlice(name);
 			
 			if(slice)
 			{
@@ -275,10 +294,11 @@ UncompressedPCMCodec::decompress(const DataChunk &data)
 	
 	const UInt64 samples = data.Size / bytes_per_sample;
 	
+	const UInt32 channels = _descriptor.getChannelCount();
 	const Rational &sample_rate = _descriptor.getSampleRate();
 	const Rational &audio_sampling_rate = _descriptor.getAudioSamplingRate();
 	
-	assert(samples == (audio_sampling_rate.Numerator * sample_rate.Denominator) / (sample_rate.Numerator * audio_sampling_rate.Denominator));
+	assert(samples == (channels * audio_sampling_rate.Numerator * sample_rate.Denominator) / (sample_rate.Numerator * audio_sampling_rate.Denominator));
 	
 	SampleType sampleType;
 	size_t decoded_sample_size;
@@ -313,8 +333,6 @@ UncompressedPCMCodec::decompress(const DataChunk &data)
 	DataChunkPtr buf_data = new DataChunk(decoded_sample_size * samples);
 	
 	char *buf_origin = (char *)buf_data->Data;
-	
-	const UInt32 channels = _descriptor.getChannelCount();
 	
 	const UInt64 length = samples / channels;
 	

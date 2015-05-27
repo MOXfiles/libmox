@@ -41,7 +41,7 @@ MPEGCodec::~MPEGCodec()
 
 
 void
-MPEGCodec::compress(FrameBufferPtr frame)
+MPEGCodec::compress(const FrameBuffer &frame)
 {
 	throw MoxMxf::NoImplExc("This is a fake codec");
 }

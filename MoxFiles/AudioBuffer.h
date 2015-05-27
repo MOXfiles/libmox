@@ -49,7 +49,8 @@ class AudioBuffer : public RefCount<AudioBuffer>
 	void fastForward(Int64 samples);
 	void fastForward(const char name[], Int64 samples);
 	void fastForward(const std::string &name, Int64 samples);
-	//void rewind();
+	
+	void rewind();
 	
 	void readFromBuffer(AudioBuffer &other, UInt64 samples = 0, bool fillMissing = false); // will more &other playheads forward
 	void copyFromBuffer(const AudioBuffer &other, UInt64 samples = 0, bool fillMissing = false); // will not
@@ -63,7 +64,7 @@ class AudioBuffer : public RefCount<AudioBuffer>
 	
 	UInt64 length() const { return _length; }
 	
-	size_t size() const { return _map.size(); }
+	size_t size() const { return _map.size(); } // number of channels
 
     //------------
     // Add a slice

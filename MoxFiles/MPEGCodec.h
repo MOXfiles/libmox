@@ -23,7 +23,7 @@ namespace MoxFiles
 		
 		virtual MoxMxf::VideoDescriptor * getDescriptor() { return &_descriptor; }
 		
-		virtual void compress(FrameBufferPtr frame);
+		virtual void compress(const FrameBuffer &frame);
 		virtual void decompress(const DataChunk &data);
 		
 	  private:
