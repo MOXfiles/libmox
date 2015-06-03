@@ -37,10 +37,14 @@ namespace MoxFiles
 		// the channels in the stream.
 		
 		VideoCodec(const Header &header, const ChannelList &channels) {} // for compression
-		VideoCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, ChannelList &channels) {} // for decompression
+		VideoCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) {} // for decompression
 		virtual ~VideoCodec() {}
 		
-		virtual MoxMxf::VideoDescriptor * getDescriptor() = 0;
+		virtual const MoxMxf::VideoDescriptor * getDescriptor() const = 0;
+		
+		virtual Box2i dataWindow() const;
+		virtual Box2i displayWindow() const;
+		virtual Box2i sampledWindow() const;
 		
 		virtual void compress(const FrameBuffer &frame) = 0;
 		virtual DataChunkPtr getNextData();
@@ -78,13 +82,13 @@ namespace MoxFiles
 		VideoCodecInfo() {}
 		virtual ~VideoCodecInfo() {}
 		
-		//virtual bool canCompressType(PixelType pixelType) const = 0;
-		
+		virtual bool canCompressType(PixelType pixelType) const = 0;
+		virtual PixelType compressedType(PixelType pixelType) const;
 		
 		virtual ChannelCapabilities getChannelCapabilites() const = 0;
 		
 		virtual VideoCodec * createCodec(const Header &header, const ChannelList &channels) const = 0; // compression
-		virtual VideoCodec * createCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, ChannelList &channels) const = 0; // decompression
+		virtual VideoCodec * createCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) const = 0; // decompression
 	};
 	
 	
@@ -97,14 +101,15 @@ namespace MoxFiles
 	{
 	  public:
 		AudioCodec(const Header &header, const AudioChannelList &channels) {} // for compression
-		AudioCodec(MoxMxf::AudioDescriptor *descriptor, Header &header, AudioChannelList &channels) {} // for decompression
+		AudioCodec(const MoxMxf::AudioDescriptor &descriptor, Header &header, AudioChannelList &channels) {} // for decompression
 		virtual ~AudioCodec() {}
 		
-		virtual MoxMxf::AudioDescriptor * getDescriptor() = 0;
+		virtual const MoxMxf::AudioDescriptor * getDescriptor() const = 0;
 		
 		virtual void compress(const AudioBuffer &audio) = 0;
 		virtual DataChunkPtr getNextData();
 		
+		virtual UInt64 samplesInFrame(size_t frame_size) = 0;
 		virtual void decompress(const DataChunk &data) = 0;
 		virtual AudioBufferPtr getNextBuffer();
 		
@@ -138,13 +143,13 @@ namespace MoxFiles
 		AudioCodecInfo() {}
 		virtual ~AudioCodecInfo() {}
 		
-		//virtual bool canCompressType(SampleType pixelType) const = 0;
-		
+		virtual bool canCompressType(SampleType sampleType) const = 0;
+		virtual SampleType compressedType(SampleType sampleType) const;
 		
 		virtual AudioChannelCapabilities getChannelCapabilites() const = 0;
 		
 		virtual AudioCodec * createCodec(const Header &header, const AudioChannelList &channels) const = 0; // compression
-		virtual AudioCodec * createCodec(MoxMxf::AudioDescriptor *descriptor, Header &header, AudioChannelList &channels) const = 0; // decompression
+		virtual AudioCodec * createCodec(const MoxMxf::AudioDescriptor &descriptor, Header &header, AudioChannelList &channels) const = 0; // decompression
 	};
 	
 	

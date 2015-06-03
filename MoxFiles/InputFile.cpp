@@ -47,16 +47,9 @@ InputFile::InputFile(MoxMxf::IOStream &infile) :
 				assert(_indexSID == vid_track.getIndexSID());
 			}
 			
-			MoxMxf::VideoDescriptor *video_descriptor = dynamic_cast<MoxMxf::VideoDescriptor *>( vid_track.getDescriptor() );
-			
-			if(video_descriptor == NULL)
-				throw MoxMxf::NullExc("Could not get descriptor.");
-			
-			
-			_header.displayWindow() = Box2i(V2i(0, 0), V2i(video_descriptor->getWidth() - 1, video_descriptor->getHeight() - 1));
-			
+			const MoxMxf::VideoDescriptor &video_descriptor = dynamic_cast<const MoxMxf::VideoDescriptor &>( vid_track.getDescriptor() );			
 		
-			const VideoCodecInfo &codec_info = getVideoCodecInfo( video_descriptor->getVideoCodec() );
+			const VideoCodecInfo &codec_info = getVideoCodecInfo( video_descriptor.getVideoCodec() );
 			
 			ChannelList channelList;
 			
@@ -64,6 +57,29 @@ InputFile::InputFile(MoxMxf::IOStream &infile) :
 			
 			if(codec == NULL)
 				throw MoxMxf::NullExc("Codec not created.");
+			
+			if(_video_codec_units.size() == 0)
+			{
+				_header.dataWindow() = codec->dataWindow();
+				_header.displayWindow() = codec->displayWindow();
+				
+				if(codec->sampledWindow() != codec->dataWindow())
+				{
+					_header.insert("sampledWindow", Box2iAttribute(codec->sampledWindow()));
+				}
+			}
+			else
+			{
+				assert(_header.dataWindow() == codec->dataWindow());
+				assert(_header.displayWindow() == codec->displayWindow());
+				
+				Box2iAttribute *sampledWindowAttr = _header.findTypedAttribute<Box2iAttribute>("sampledWindow");
+				
+				if(sampledWindowAttr)
+				{
+					assert(sampledWindowAttr->value() == codec->sampledWindow());
+				}
+			}
 			
 			assert(channelList.size() > 0);
 			
@@ -84,26 +100,22 @@ InputFile::InputFile(MoxMxf::IOStream &infile) :
 				assert(_indexSID == sound_track.getIndexSID());
 			}
 			
-			MoxMxf::AudioDescriptor *audio_descriptor = dynamic_cast<MoxMxf::AudioDescriptor *>( sound_track.getDescriptor() );
-			
-			if(audio_descriptor == NULL)
-				throw MoxMxf::NullExc("Could not get descriptor.");
-			
+			const MoxMxf::AudioDescriptor &audio_descriptor = dynamic_cast<const MoxMxf::AudioDescriptor &>( sound_track.getDescriptor() );			
 			
 			//_header.displayWindow() = Box2i(V2i(0, 0), V2i(video_descriptor->getWidth() - 1, video_descriptor->getHeight() - 1));
 			Rational &sample_rate = _header.sampleRate();
 			
 			if(sample_rate == Rational(0, 1))
 			{
-				sample_rate = audio_descriptor->getAudioSamplingRate();
+				sample_rate = audio_descriptor.getAudioSamplingRate();
 			}
 			else
 			{
-				assert(sample_rate == audio_descriptor->getAudioSamplingRate());
+				assert(sample_rate == audio_descriptor.getAudioSamplingRate());
 			}
 			
 			
-			const AudioCodecInfo &codec_info = getAudioCodecInfo( audio_descriptor->getAudioCodec() );
+			const AudioCodecInfo &codec_info = getAudioCodecInfo( audio_descriptor.getAudioCodec() );
 			
 			
 			AudioChannelList channelList;
@@ -226,6 +238,41 @@ InputFile::InputFile(MoxMxf::IOStream &infile) :
 		
 		_header.audioChannels() = audio_channels;
 	}
+	
+	
+	const UInt64 dur = _header.duration();
+	
+	for(UInt64 f = 0; f < dur; f++)
+	{
+		MoxMxf::FramePtr mxf_frame = _mxf_file.getFrame(f, _bodySID, _indexSID);
+		
+		if(!mxf_frame)
+			throw MoxMxf::NullExc("NULL frame");
+		
+		MoxMxf::Frame::FrameParts &frameParts = mxf_frame->getFrameParts();
+		
+		for(std::list<AudioCodecUnit>::iterator i = _audio_codec_units.begin(); i != _audio_codec_units.end(); ++i)
+		{
+			AudioCodecUnit &unit = *i;
+			
+			if(frameParts.find(unit.trackNumber) != frameParts.end())
+			{
+				MoxMxf::FramePartPtr part = frameParts[unit.trackNumber];
+				
+				if(!part)
+					throw MoxMxf::NullExc("NULL frame part");
+					
+				if(f == 0)
+				{
+					unit.sampleIndex.push_back(0);
+				}
+				
+				unit.sampleIndex.push_back(unit.sampleIndex[f] + unit.codec->samplesInFrame( part->getDataSize() ));
+			}
+			else
+				assert(false);
+		}
+	}
 }
 
 
@@ -288,6 +335,19 @@ InputFile::getFrame(int frameNumber, FrameBuffer &frameBuffer)
 void
 InputFile::readAudio(UInt64 samples, AudioBuffer &buffer)
 {
+	assert(samples <= buffer.length());
+
+	// make a list of channels in the buffer
+	AudioChannelList fill_channels;
+	
+	for(AudioBuffer::ConstIterator i = buffer.begin(); i != buffer.end(); ++i)
+	{
+		const Name &name = i.name();
+		const AudioSlice &slice = i.slice();
+		
+		fill_channels.insert(name.text(), AudioChannel(slice.type));
+	}
+
 	// make track-specific AudioBuffers
 	std::map<MoxMxf::TrackNum, AudioBufferPtr> trackBuffers;
 	
@@ -309,6 +369,9 @@ InputFile::readAudio(UInt64 samples, AudioBuffer &buffer)
 			if(buffer_slice != NULL)
 			{
 				trackBuf->insert(codec_name.text(), *buffer_slice);
+				
+				// take channel out of list if it will be filled with data
+				fill_channels.erase(buffer_name.text());
 			}
 		}
 		
@@ -317,41 +380,88 @@ InputFile::readAudio(UInt64 samples, AudioBuffer &buffer)
 			trackBuffers[unit.trackNumber] = trackBuf;
 		}
 	}
-
-	const Rational &frame_rate = _header.frameRate();
-	const Rational &sample_rate = _header.sampleRate();
-	const int duration = _header.duration();
-
-	const double samples_per_frame = (double)(sample_rate.Numerator * frame_rate.Denominator) /
-										(double)(sample_rate.Denominator * frame_rate.Numerator);
-										
-	assert(samples_per_frame == floor(samples_per_frame));
 	
-	const int start_frame = _sample_num / (int)samples_per_frame;
 	
-	int current_frame = start_frame;
-	UInt64 samples_left = samples;
+	// fill audio channels  we don't have data for
+	AudioBuffer fill_buffer(buffer.length());
 	
-	while(samples_left > 0 && current_frame < duration)
+	for(AudioChannelList::ConstIterator i = fill_channels.begin(); i != fill_channels.end(); ++i)
 	{
-		const UInt64 start_sample = _sample_num - (current_frame * (int)samples_per_frame);
-		const UInt64 samples_to_read = std::min((int)samples_per_frame - start_sample, samples_left);
+		const Name &name = i.name();
 		
-		MoxMxf::FramePtr mxf_frame = _mxf_file.getFrame(current_frame, _bodySID, _indexSID);
-	
-		if(!mxf_frame)
-			throw MoxMxf::NullExc("NULL frame");
+		AudioSlice *slice = buffer.findSlice(name.text());
 		
-		MoxMxf::Frame::FrameParts &frameParts = mxf_frame->getFrameParts();
-		
-		for(std::list<AudioCodecUnit>::iterator u = _audio_codec_units.begin(); u != _audio_codec_units.end(); ++u)
+		if(slice)
 		{
-			AudioCodecUnit &unit = *u;
+			fill_buffer.insert(name.text(), *slice);
+		}
+		else
+			assert(false);
+	}
+	
+	fill_buffer.fillRemaining();
+	
+	
+
+	Rational edit_rate = _mxf_file.getEditRate(); // not const because operator== is not const for some reason
+	const int duration = _mxf_file.getDuration();
+	
+	assert(edit_rate == _header.frameRate());
+	assert(duration == _header.duration());
+	
+	
+	std::map<MoxMxf::Position, MoxMxf::FramePtr> frameStore;
+	
+	for(std::list<AudioCodecUnit>::iterator u = _audio_codec_units.begin(); u != _audio_codec_units.end(); ++u)
+	{
+		AudioCodecUnit &unit = *u;
+		
+		Rational sample_rate = _header.sampleRate();
+		assert(sample_rate == unit.codec->getDescriptor()->getAudioSamplingRate());
+		
+		UInt64 samples_left = samples;
+		
+		UInt64 current_frame = 0;
+		
+		assert(duration == (unit.sampleIndex.size() - 1));
+		
+		while(current_frame < (unit.sampleIndex.size() - 1) && _sample_num >= unit.sampleIndex[current_frame + 1])
+		{
+			current_frame++;
+		}
+		
+		while(samples_left > 0 && current_frame < duration)
+		{
+			const UInt64 start_sample = (_sample_num > unit.sampleIndex[current_frame] ? (_sample_num - unit.sampleIndex[current_frame]) : 0);
+			const UInt64 samples_this_frame = unit.sampleIndex[current_frame + 1] - unit.sampleIndex[current_frame];
+			const UInt64 samples_to_read = std::min(samples_this_frame - start_sample, samples_left);
+			
+			std::map<MoxMxf::Position, MoxMxf::FramePtr>::iterator frame_i = frameStore.find(current_frame);
+			
+			MoxMxf::FramePtr mxf_frame;
+			
+			if(frame_i == frameStore.end())
+			{
+				mxf_frame = _mxf_file.getFrame(current_frame, _bodySID, _indexSID);
+				
+				if(mxf_frame)
+					frameStore[current_frame] = mxf_frame;
+			}
+			else
+			{
+				mxf_frame = frame_i->second;
+			}
+			
+			if(!mxf_frame)
+				throw MoxMxf::NullExc("NULL frame");
+			
+			
+			MoxMxf::Frame::FrameParts &frameParts = mxf_frame->getFrameParts();
 			
 			if(trackBuffers.find(unit.trackNumber) != trackBuffers.end())
 			{
 				if(frameParts.find(unit.trackNumber) == frameParts.end())
-					throw MoxMxf::LogicExc("Should be a frameParts entry for each");
+					throw MoxMxf::LogicExc("Should be a frameParts entry for each trackBuffer");
 				
 				mxflib::DataChunk &data = frameParts[unit.trackNumber]->getData();
 				
@@ -371,21 +481,21 @@ InputFile::readAudio(UInt64 samples, AudioBuffer &buffer)
 				else
 					throw MoxMxf::LogicExc("Not currently dealing with codecs that don't return audio every time.");
 			}
+			
+			samples_left -= samples_to_read;
+			current_frame++;
 		}
 		
-		_sample_num += samples_to_read;
-		samples_left -= samples_to_read;
-		current_frame++;
-	}
-	
-	if(samples_left > 0)
-	{
-		// fill the remaining samples
-		for(std::map<MoxMxf::TrackNum, AudioBufferPtr>::iterator tr = trackBuffers.begin(); tr != trackBuffers.end(); ++tr)
+		if(trackBuffers.find(unit.trackNumber) != trackBuffers.end())
 		{
-			tr->second->fillRemaining();
+			AudioBufferPtr track_buffer = trackBuffers[unit.trackNumber];
+			
+			track_buffer->fillRemaining();
 		}
 	}
+	
+	
+	_sample_num += samples;
 }
 
 } // namespace

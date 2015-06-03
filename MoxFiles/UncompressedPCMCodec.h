@@ -19,12 +19,14 @@ namespace MoxFiles
 	{
 	  public:
 		UncompressedPCMCodec(const Header &header, const AudioChannelList &channels);
-		UncompressedPCMCodec(MoxMxf::AudioDescriptor *descriptor, Header &header, AudioChannelList &channels);
+		UncompressedPCMCodec(const MoxMxf::AudioDescriptor &descriptor, Header &header, AudioChannelList &channels);
 		virtual ~UncompressedPCMCodec() {}
 		
-		virtual MoxMxf::AudioDescriptor * getDescriptor() { return &_descriptor; }
+		virtual const MoxMxf::AudioDescriptor * getDescriptor() const { return &_descriptor; }
 		
 		virtual void compress(const AudioBuffer &audio);
+		
+		virtual UInt64 samplesInFrame(size_t frame_size);
 		virtual void decompress(const DataChunk &data);
 
 	  private:
@@ -38,10 +40,12 @@ namespace MoxFiles
 		UncompressedPCMCodecInfo() {}
 		virtual ~UncompressedPCMCodecInfo() {}
 		
+		virtual bool canCompressType(SampleType sampleType) const;
+		
 		virtual AudioChannelCapabilities getChannelCapabilites() const;
 		
 		virtual AudioCodec * createCodec(const Header &header, const AudioChannelList &channels) const; // compression
-		virtual AudioCodec * createCodec(MoxMxf::AudioDescriptor *descriptor, Header &header, AudioChannelList &channels) const; // decompression
+		virtual AudioCodec * createCodec(const MoxMxf::AudioDescriptor &descriptor, Header &header, AudioChannelList &channels) const; // decompression
 	};
 
 } // namespace

@@ -382,10 +382,10 @@ RGBADescriptor::makeDescriptorObj() const
 {
 	mxflib::MDObjectPtr descriptor = VideoDescriptor::makeDescriptorObj();
 	
-	descriptor->AddChild(ComponentMaxRef_UL)->SetUInt(_component_max_ref);
-	descriptor->AddChild(ComponentMinRef_UL)->SetUInt(_component_min_ref);
-	descriptor->AddChild(AlphaMaxRef_UL)->SetUInt(_alpha_max_ref);
-	descriptor->AddChild(AlphaMinRef_UL)->SetUInt(_alpha_min_ref);
+	//descriptor->AddChild(ComponentMaxRef_UL)->SetUInt(_component_max_ref);
+	//descriptor->AddChild(ComponentMinRef_UL)->SetUInt(_component_min_ref);
+	//descriptor->AddChild(AlphaMaxRef_UL)->SetUInt(_alpha_max_ref);
+	//descriptor->AddChild(AlphaMinRef_UL)->SetUInt(_alpha_min_ref);
 	descriptor->AddChild(ScanningDirection_UL)->SetUInt(_scanning_direction);
 
 	if(_pixel_layout.size() > 0)
@@ -403,6 +403,7 @@ RGBADescriptor::makeDescriptorObj() const
 		
 			assert(layout_item->GetClass() == mxflib::COMPOUND);
 			assert(*layout_item->GetValueType()->GetTypeUL() == RGBALayoutItem_UL);
+			assert(layout_item->IsA(RGBALayoutItem_UL));
 			assert(layout_item->GetUInt("Code") == 0);
 			assert(layout_item->GetUInt("Depth") == 0);
 		

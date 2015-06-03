@@ -64,7 +64,7 @@ AudioChannelList::type() const
 		}
 		else
 		{
-			assert(typ = chan.type);
+			assert(typ == chan.type);
 		}
 	}
 	

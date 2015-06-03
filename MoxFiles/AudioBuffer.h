@@ -62,7 +62,7 @@ class AudioBuffer : public RefCount<AudioBuffer>
 	void attachData(DataChunkPtr dat) { _data.push_back(dat); }
 	
 	
-	UInt64 length() const { return _length; }
+	UInt64 length() const { return _length; } // number of samples
 	
 	size_t size() const { return _map.size(); } // number of channels
 

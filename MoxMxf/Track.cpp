@@ -161,9 +161,20 @@ SourceTrack::SourceTrack(mxflib::TrackPtr track) :
 		throw InputExc("No component");
 }
 
+
 SourceTrack::~SourceTrack()
 {
 	delete _descriptor;
+}
+
+
+const Descriptor &
+SourceTrack::getDescriptor() const
+{
+	if(_descriptor == NULL)
+		throw NullExc("Track has a NULL descriptor");
+	
+	return *_descriptor;
 }
 
 

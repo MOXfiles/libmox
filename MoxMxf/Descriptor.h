@@ -95,8 +95,20 @@ namespace MoxMxf
 		
 		void setFrameLayout(UInt8 layout) { _frame_layout = layout; }
 		
-		UInt32 getWidth() const { return _stored_width; }
-		UInt32 getHeight() const { return _stored_height; }
+		UInt32 getStoredWidth() const { return _stored_width; }
+		UInt32 getStoredHeight() const { return _stored_height; }
+		UInt32 getSampledWidth() const { return _sampled_width; }
+		UInt32 getSampledHeight() const { return _sampled_height; }
+		Int32 getSampledXOffset() const { return _sampled_x_offset; }
+		Int32 getSampledYOffset() const { return _sampled_y_offset; }
+		UInt32 getDisplayWidth() const { return _display_width; }
+		UInt32 getDisplayHeight() const { return _display_height; }
+		Int32 getDisplayXOffset() const { return _display_x_offset; }
+		Int32 getDisplayYOffset() const { return _display_y_offset; }
+		
+		UInt32 getImageAlignmentOffset() const { return _image_alignment_offset; }
+		UInt32 getImageStartOffset() const { return _image_start_offset; }
+		UInt32 getImageEndOffset() const { return _image_end_offset; }
 		
 	  protected:
 		void setPictureEssenceCoding(const mxflib::UL &ul) { _picture_essence_coding = ul; }

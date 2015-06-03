@@ -46,6 +46,14 @@ Slice::Slice (PixelType t,
 }
 
 
+FrameBuffer::FrameBuffer(const Box2i &dataWindow) :
+	_dataWindow(dataWindow)
+{
+	if( _dataWindow.isEmpty() )
+		throw MoxMxf::ArgExc("Invalid dimensions for FrameBuffer");
+}
+
+
 FrameBuffer::FrameBuffer(int width, int height) :
 	_dataWindow(V2i(0, 0), V2i(width - 1, height - 1))
 {
@@ -471,7 +479,7 @@ CopyTask::CopyRow(char *dest_origin, ptrdiff_t dest_xStride, const char *source_
 		{
 			const SRCTYPE clipped = (convertinfo<SRCTYPE>::isFloat() ? (SRCTYPE)max<float>(0.f, min<float>(1.f, *in)) : *in);
 		
-			*out = (float)clipped * (float)convertinfo<SRCTYPE>::max() + 0.5f;
+			*out = (float)clipped * (float)convertinfo<DSTTYPE>::max() + 0.5f;
 			
 			out += out_step;
 			in += in_step;

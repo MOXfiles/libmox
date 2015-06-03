@@ -25,9 +25,9 @@ UncompressedPCMCodec::UncompressedPCMCodec(const Header &header, const AudioChan
 }
 
 
-UncompressedPCMCodec::UncompressedPCMCodec(MoxMxf::AudioDescriptor *descriptor, Header &header, AudioChannelList &channels) :
+UncompressedPCMCodec::UncompressedPCMCodec(const MoxMxf::AudioDescriptor &descriptor, Header &header, AudioChannelList &channels) :
 	AudioCodec(descriptor, header, channels),
-	_descriptor(dynamic_cast<MoxMxf::WaveAudioDescriptor &>(*descriptor))
+	_descriptor(dynamic_cast<const MoxMxf::WaveAudioDescriptor &>(descriptor))
 {
 	assert(header.sampleRate() == _descriptor.getAudioSamplingRate());
 
@@ -242,10 +242,10 @@ UncompressedPCMCodec::compress(const AudioBuffer &audio)
 	const UInt64 length = audio_buf.length();
 	const UInt64 samples = length * channels;
 	
-	const Rational &sample_rate = _descriptor.getSampleRate();
-	const Rational &audio_sampling_rate = _descriptor.getAudioSamplingRate();
+	//const Rational &sample_rate = _descriptor.getSampleRate();
+	//const Rational &audio_sampling_rate = _descriptor.getAudioSamplingRate();
 	
-	assert(samples == (channels * audio_sampling_rate.Numerator * sample_rate.Denominator) / (sample_rate.Numerator * audio_sampling_rate.Denominator));
+	//assert(samples == (channels * audio_sampling_rate.Numerator * sample_rate.Denominator) / (sample_rate.Numerator * audio_sampling_rate.Denominator));
 	
 	
 	
@@ -284,6 +284,24 @@ UncompressedPCMCodec::compress(const AudioBuffer &audio)
 }
 
 
+UInt64
+UncompressedPCMCodec::samplesInFrame(size_t frame_size)
+{
+	const UInt32 bit_depth = _descriptor.getBitDepth();
+	const size_t bytes_per_sample = (bit_depth + 7) / 8;
+	
+	assert(frame_size % bytes_per_sample == 0);
+	
+	const UInt64 samples = frame_size / bytes_per_sample;
+	
+	const UInt32 channels = _descriptor.getChannelCount();
+	
+	assert(samples % channels == 0);
+	
+	return (samples / channels);
+}
+
+
 void
 UncompressedPCMCodec::decompress(const DataChunk &data)
 {
@@ -295,10 +313,10 @@ UncompressedPCMCodec::decompress(const DataChunk &data)
 	const UInt64 samples = data.Size / bytes_per_sample;
 	
 	const UInt32 channels = _descriptor.getChannelCount();
-	const Rational &sample_rate = _descriptor.getSampleRate();
-	const Rational &audio_sampling_rate = _descriptor.getAudioSamplingRate();
+	//const Rational &sample_rate = _descriptor.getSampleRate();
+	//const Rational &audio_sampling_rate = _descriptor.getAudioSamplingRate();
 	
-	assert(samples == (channels * audio_sampling_rate.Numerator * sample_rate.Denominator) / (sample_rate.Numerator * audio_sampling_rate.Denominator));
+	//assert(samples == (channels * audio_sampling_rate.Numerator * sample_rate.Denominator) / (sample_rate.Numerator * audio_sampling_rate.Denominator));
 	
 	SampleType sampleType;
 	size_t decoded_sample_size;
@@ -439,6 +457,12 @@ UncompressedPCMCodec::decompress(const DataChunk &data)
 }
 
 
+bool
+UncompressedPCMCodecInfo::canCompressType(SampleType sampleType) const
+{
+	return (sampleType == UNSIGNED8 || sampleType == SIGNED16 || sampleType == SIGNED24 || sampleType == SIGNED32);
+}
+
 AudioChannelCapabilities
 UncompressedPCMCodecInfo::getChannelCapabilites() const
 {
@@ -452,7 +476,7 @@ UncompressedPCMCodecInfo::createCodec(const Header &header, const AudioChannelLi
 }
 
 AudioCodec *
-UncompressedPCMCodecInfo::createCodec(MoxMxf::AudioDescriptor *descriptor, Header &header, AudioChannelList &channels) const
+UncompressedPCMCodecInfo::createCodec(const MoxMxf::AudioDescriptor &descriptor, Header &header, AudioChannelList &channels) const
 {
 	return new UncompressedPCMCodec(descriptor, header, channels);
 }

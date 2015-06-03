@@ -21,12 +21,12 @@ MPEGCodec::MPEGCodec(const Header &header, const ChannelList &channels) :
 }
 
 
-MPEGCodec::MPEGCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, ChannelList &channels) :
+MPEGCodec::MPEGCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) :
 	VideoCodec(descriptor, header, channels),
-	_descriptor(dynamic_cast<MoxMxf::MPEGDescriptor &>(*descriptor))
+	_descriptor(dynamic_cast<const MoxMxf::MPEGDescriptor &>(descriptor))
 {
-	assert(header.width() == _descriptor.getWidth());
-	assert(header.height() == _descriptor.getHeight());
+	assert(header.width() == _descriptor.getStoredWidth());
+	assert(header.height() == _descriptor.getStoredHeight());
 	
 	channels.insert("R", Channel(MoxFiles::UINT8));
 	channels.insert("G", Channel(MoxFiles::UINT8));
@@ -53,8 +53,8 @@ MPEGCodec::decompress(const DataChunk &data)
 	const int channels = 3;
 	const size_t bytes_per_channel = sizeof(unsigned char);
 	
-	const UInt32 width = _descriptor.getWidth();
-	const UInt32 height = _descriptor.getHeight();
+	const UInt32 width = _descriptor.getStoredWidth();
+	const UInt32 height = _descriptor.getStoredHeight();
 	
 	const ptrdiff_t stride = bytes_per_channel * channels;
 	const size_t rowbytes = width * stride;
@@ -80,6 +80,11 @@ MPEGCodec::decompress(const DataChunk &data)
 	storeFrame(buf);
 }
 
+bool
+MPEGCodecInfo::canCompressType(PixelType pixelType) const
+{
+	return (pixelType == UINT8);
+}
 
 ChannelCapabilities
 MPEGCodecInfo::getChannelCapabilites() const
@@ -96,7 +101,7 @@ MPEGCodecInfo::createCodec(const Header &header, const ChannelList &channels) co
 
 
 VideoCodec *
-MPEGCodecInfo::createCodec(MoxMxf::VideoDescriptor *descriptor, Header &header, ChannelList &channels) const
+MPEGCodecInfo::createCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) const
 {
 	return new MPEGCodec(descriptor, header, channels);
 }

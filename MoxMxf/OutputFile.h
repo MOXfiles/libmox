@@ -23,7 +23,7 @@ namespace MoxMxf
 	class OutputFile
 	{
 	  public:
-		typedef std::map<TrackNum, Descriptor *> EssenceList;
+		typedef std::map<TrackNum, const Descriptor *> EssenceList;
 	  
 		OutputFile(IOStream &outfile, const EssenceList &essence, Rational EditRate, Position startTimeCode);
 		~OutputFile();

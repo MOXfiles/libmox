@@ -34,47 +34,44 @@ typedef FILETIME DateTime;
 
 
 
-namespace MoxMxf
+class PlatformIOStream : public MoxMxf::IOStream
 {
-	class PlatformIOStream : public IOStream
-	{
-	  public:
-		typedef enum {
-			ReadOnly,
-			ReadWrite
-		} Cababilities;
-	
-	#ifdef __APPLE__
-		PlatformIOStream(FSIORefNum refNum);
-	#endif
-	#ifdef WIN32
-		PlatformIOStream(HANDLE _hFile);
-	#endif
-		
-		PlatformIOStream(const char *filepath, Cababilities abilities);
-		PlatformIOStream(const uint16_t *filepath, Cababilities abilities);
-		virtual ~PlatformIOStream();
-		
-		virtual int FileSeek(UInt64 offset);
-		virtual UInt64 FileRead(unsigned char *dest, UInt64 size);
-		virtual UInt64 FileWrite(const unsigned char *source, UInt64 size);
-		virtual UInt64 FileTell();
-		virtual void FileFlush();
-		virtual void FileTruncate(Int64 newsize);
-		virtual Int64 FileSize();
-	
-	  private:
-		bool _I_opened;
-		
-	#ifdef __APPLE__
-		FSIORefNum _refNum;
-	#endif
+  public:
+	typedef enum {
+		ReadOnly,
+		ReadWrite
+	} Cababilities;
 
-	#ifdef WIN32
-		HANDLE _hFile;
-	#endif
-	};
-
-} // namespace
-
+#ifdef __APPLE__
+	PlatformIOStream(FSIORefNum refNum);
 #endif
+#ifdef WIN32
+	PlatformIOStream(HANDLE _hFile);
+#endif
+	
+	PlatformIOStream(const char *filepath, Cababilities abilities);
+	PlatformIOStream(const uint16_t *filepath, Cababilities abilities);
+	virtual ~PlatformIOStream();
+	
+	virtual int FileSeek(MoxMxf::UInt64 offset);
+	virtual MoxMxf::UInt64 FileRead(unsigned char *dest, MoxMxf::UInt64 size);
+	virtual MoxMxf::UInt64 FileWrite(const unsigned char *source, MoxMxf::UInt64 size);
+	virtual MoxMxf::UInt64 FileTell();
+	virtual void FileFlush();
+	virtual void FileTruncate(MoxMxf::Int64 newsize);
+	virtual MoxMxf::Int64 FileSize();
+
+  private:
+	bool _I_opened;
+	
+#ifdef __APPLE__
+	FSIORefNum _refNum;
+#endif
+
+#ifdef WIN32
+	HANDLE _hFile;
+#endif
+};
+
+
+#endif // MOXMXF_PLATFORMIOSTREAM_H

@@ -19,8 +19,8 @@ using namespace std;
 
 static void
 initialize(Header &header,
-		int width,
-		int height,
+		const Box2i &dataWindow,
+		const Box2i &displayWindow,
 		const Rational &frameRate,
 		const Rational &sampleRate,
 		VideoCompression videoCompression,
@@ -30,9 +30,8 @@ initialize(Header &header,
 {
 	staticInitialize();
 
-	const Box2i dispW = Box2i(V2i(0, 0), V2i(width - 1, height - 1));
-
-    header.insert("displayWindow", Box2iAttribute(dispW));
+    header.insert("dataWindow", Box2iAttribute(dataWindow));
+	header.insert("displayWindow", Box2iAttribute(displayWindow));
 	header.insert("frameRate", RationalAttribute(frameRate));
 	header.insert("sampleRate", RationalAttribute(sampleRate));
 	header.insert("videoCompression", VideoCompressionAttribute(videoCompression));
@@ -46,6 +45,27 @@ initialize(Header &header,
 }
 
 
+Header::Header(const Box2i &dataWindow,
+			const Box2i &displayWindow,
+			const Rational &frameRate,
+			const Rational &sampleRate,
+			VideoCompression videoCompression,
+			AudioCompression audioCompression,
+			int duration,
+			Int64 audioDuration)
+{
+	initialize(*this,
+			dataWindow,
+			displayWindow,
+			frameRate,
+			sampleRate,
+			videoCompression,
+			audioCompression,
+			duration,
+			audioDuration);
+}
+
+
 Header::Header(int width,
 			int height,
 			const Rational &frameRate,
@@ -55,9 +75,11 @@ Header::Header(int width,
 			int duration,
 			Int64 audioDuration)
 {
+	const Box2i dw = Box2i(V2i(0, 0), V2i(width - 1, height - 1));
+
 	initialize(*this,
-			width,
-			height,
+			dw,
+			dw,
 			frameRate,
 			sampleRate,
 			videoCompression,
@@ -274,6 +296,22 @@ Header::ConstIterator
 Header::find (const string &name) const
 {
     return find (name.c_str());
+}
+
+
+Box2i &	
+Header::dataWindow ()
+{
+    return static_cast <Box2iAttribute &>
+	((*this)["dataWindow"]).value();
+}
+
+
+const Box2i &
+Header::dataWindow () const
+{
+    return static_cast <const Box2iAttribute &>
+	((*this)["dataWindow"]).value();
 }
 
 

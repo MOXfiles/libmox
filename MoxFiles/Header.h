@@ -22,6 +22,15 @@ namespace MoxFiles
 class Header
 {
   public:
+	Header(const Box2i &dataWindow,
+			const Box2i &displayWindow,
+			const Rational &frameRate = Rational(24, 1),
+			const Rational &sampleRate = Rational(0, 1),
+			VideoCompression videoCompression = UNCOMPRESSED,
+			AudioCompression audioCompression = PCM,
+			int duration = 0,
+			Int64 audioDuration = 0);
+
 	Header(int width = 64,
 			int height = 64,
 			const Rational &frameRate = Rational(24, 1),
@@ -140,6 +149,9 @@ class Header
     //--------------------------------
     // Access to predefined attributes
     //--------------------------------
+
+    Box2i &			dataWindow ();
+    const Box2i &	dataWindow () const;
 
     Box2i &			displayWindow ();
     const Box2i &	displayWindow () const;

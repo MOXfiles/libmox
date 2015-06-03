@@ -223,36 +223,41 @@ OutputFile::OutputFile(IOStream &outfile, const EssenceList &essence, Rational E
 
 OutputFile::~OutputFile()
 {
-	_writer->WriteBody();
-	
-	assert(_writer->BodyDone());
-
-	_writer->EndPartition();
-	
-	
-	for(std::deque<mxflib::ComponentPtr>::iterator i = _duration_objs.begin(); i != _duration_objs.end(); ++i)
+	if(_header_written)
 	{
-		mxflib::ComponentPtr source_clip = *i;
-	
-		source_clip->SetDuration(_duration);
-	}
-	
-	_metadata->SetTime();
-	
-	_metadata->UpdateGenerations(_identification);
-	
-	
-	mxflib::PartitionPtr footer_partition = new mxflib::Partition(FooterPartition_UL);
-	
-	initPartition(footer_partition, 0, _indexSID);
+		_writer->WriteBody();
 		
-	footer_partition->AddMetadata(_metadata);
-	
-	_writer->SetPartition(footer_partition);
-	
-	_writer->WriteFooter(true);
-	
-	_writer->EndPartition();
+		assert(_writer->BodyDone());
+
+		_writer->EndPartition();
+		
+		
+		for(std::deque<mxflib::ComponentPtr>::iterator i = _duration_objs.begin(); i != _duration_objs.end(); ++i)
+		{
+			mxflib::ComponentPtr source_clip = *i;
+		
+			source_clip->SetDuration(_duration);
+		}
+		
+		_metadata->SetTime();
+		
+		_metadata->UpdateGenerations(_identification);
+		
+		
+		mxflib::PartitionPtr footer_partition = new mxflib::Partition(FooterPartition_UL);
+		
+		initPartition(footer_partition, 0, _indexSID);
+			
+		footer_partition->AddMetadata(_metadata);
+		
+		_writer->SetPartition(footer_partition);
+		
+		_writer->WriteFooter(true);
+		
+		_writer->EndPartition();
+	}
+	else
+		assert(false); // no frames were written apparently
 
 	_file->Close();
 	

@@ -58,6 +58,7 @@ namespace MoxFiles
 			std::map<Name, Name> channel_map;
 			AudioCodec *codec;
 			MoxMxf::TrackNum trackNumber;
+			std::vector<UInt64> sampleIndex; // the sample number we'll read if we scan to here, will have duration + 1 entries
 			
 			AudioCodecUnit() : codec(NULL) {}
 			AudioCodecUnit(AudioChannelList ch, AudioCodec *co, MoxMxf::TrackNum tr) : channelList(ch), codec(co), trackNumber(tr) {}

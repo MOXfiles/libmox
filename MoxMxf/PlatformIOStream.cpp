@@ -13,16 +13,18 @@
 
 #include <assert.h>
 
-namespace MoxMxf
-{
+
+using namespace MoxMxf;
 
 #ifdef __APPLE__
-
 
 PlatformIOStream::PlatformIOStream(FSIORefNum refNum) :
 	_refNum(refNum),
 	_I_opened(false)
 {
+	if(_refNum == 0)
+		throw LogicExc("_refNum is 0.");
+	
 	FileSeek(0);
 }
 
@@ -110,7 +112,7 @@ PlatformIOStream::PlatformIOStream(const char *filepath, Cababilities abilities)
 
 	result = FSOpenFork(&fsRef, dataForkName.length, dataForkName.unicode, perm, &_refNum);
 
-	if(result != noErr)
+	if(result != noErr || _refNum == 0)
 		throw IoExc("Couldn't open file.");
 	
 	_I_opened = true;
@@ -206,7 +208,7 @@ PlatformIOStream::PlatformIOStream(const uint16_t *filepath, Cababilities abilit
 
 	result = FSOpenFork(&fsRef, dataForkName.length, dataForkName.unicode, perm, &_refNum);
 
-	if(result != noErr)
+	if(result != noErr || _refNum == 0)
 		throw IoExc("Couldn't open file for reading.");
 	
 	_I_opened = true;
@@ -227,9 +229,6 @@ PlatformIOStream::~PlatformIOStream()
 int
 PlatformIOStream::FileSeek(UInt64 offset)
 {
-	if(_refNum == 0)
-		throw LogicExc("_refNum is 0.");
-	
 	OSErr result = FSSetForkPosition(_refNum, fsFromStart, offset);
 
 	return (result == noErr ? 0 : -1);
@@ -239,9 +238,6 @@ PlatformIOStream::FileSeek(UInt64 offset)
 UInt64
 PlatformIOStream::FileRead(unsigned char *dest, UInt64 size)
 {
-	if(_refNum == 0)
-		throw LogicExc("_refNum is 0.");
-
 	ByteCount count = size;
 	
 	OSErr result = FSReadFork(_refNum, fsAtMark, 0, count, (void *)dest, &count);
@@ -268,9 +264,6 @@ PlatformIOStream::FileWrite(const unsigned char *source, UInt64 size)
 UInt64
 PlatformIOStream::FileTell()
 {
-	if(_refNum == 0)
-		throw LogicExc("_refNum is 0.");
-
 	SInt64 lpos;
 
 	OSErr result = FSGetForkPosition(_refNum, &lpos);
@@ -303,9 +296,6 @@ PlatformIOStream::FileTruncate(Int64 newsize)
 Int64
 PlatformIOStream::FileSize()
 {
-	if(_refNum == 0)
-		throw LogicExc("_refNum is 0.");
-	
 	SInt64 fork_size = 0;
 	
 	OSErr result = FSGetForkSize(_refNum, &fork_size);
@@ -317,6 +307,3 @@ PlatformIOStream::FileSize()
 }
 
 #endif // __APPLE__
-
-} // namespace
-

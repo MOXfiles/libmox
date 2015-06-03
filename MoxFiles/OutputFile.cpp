@@ -18,11 +18,20 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 	_mxf_file(NULL),
 	_audio_frame(0)
 {
-	const ChannelList &video_channels = header.channels();
+	ChannelList &video_channels = _header.channels();
 
 	if(video_channels.size() > 0)
 	{
 		const VideoCodecInfo &videoCodecInfo = getVideoCodecInfo( header.videoCompression() );
+		
+		// set all channels to PixelType the codec can accept
+		for(ChannelList::Iterator i = video_channels.begin(); i != video_channels.end(); ++i)
+		{
+			Channel &chan = i.channel();
+			
+			if( !videoCodecInfo.canCompressType(chan.type) )
+				chan.type = videoCodecInfo.compressedType(chan.type);
+		}
 		
 		const ChannelCapabilities codecCapabilities = videoCodecInfo.getChannelCapabilites();
 		
@@ -30,7 +39,7 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 		{
 			VideoCodec *codec = videoCodecInfo.createCodec(header, video_channels);
 			
-			MoxMxf::Descriptor *descriptor = codec->getDescriptor();
+			const MoxMxf::Descriptor *descriptor = codec->getDescriptor();
 			
 			const MoxMxf::UInt8 itemType = descriptor->getGCItemType();
 			const MoxMxf::UInt8 elementType = descriptor->getGCElementType();
@@ -44,11 +53,15 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 			ChannelList channels_to_assign = video_channels;
 			
 			std::list<std::string> rgba_list;
-			rgba_list.push_back("R");
-			rgba_list.push_back("G");
-			rgba_list.push_back("B");
 			
-			if(codecCapabilities & Channels_RGBA)
+			if(codecCapabilities & Channels_RGB)
+			{
+				rgba_list.push_back("R");
+				rgba_list.push_back("G");
+				rgba_list.push_back("B");
+			}
+			
+			if((codecCapabilities & Channels_RGBA) || (codecCapabilities & Channels_A))
 				rgba_list.push_back("A");
 			
 			ChannelList rgba_layer;
@@ -69,14 +82,12 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 			
 			if(rgba_layer.begin() != rgba_layer.end()) // i.e. not empty
 			{
-				const ChannelList channelList = rgba_layer;
-				
-				VideoCodec *codec = videoCodecInfo.createCodec(header, channelList);
+				VideoCodec *codec = videoCodecInfo.createCodec(header, rgba_layer);
 				
 				// we put temporary number and counts here because we don't know how many total codecs we'll have
 				const MoxMxf::TrackNum tempTrackNumber = 12345;
 			
-				_video_codec_units.push_back( VideoCodecUnit(channelList, codec, tempTrackNumber) );
+				_video_codec_units.push_back( VideoCodecUnit(rgba_layer, codec, tempTrackNumber) );
 			}
 			
 			// handle the other layer possibilities here...someday
@@ -86,11 +97,20 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 	}
 	
 	
-	const AudioChannelList &audio_channels = header.audioChannels();
+	AudioChannelList &audio_channels = _header.audioChannels();
 	
 	if(audio_channels.size() > 0)
 	{
 		const AudioCodecInfo &audioCodecInfo = getAudioCodecInfo( header.audioCompression() );
+		
+		// set all channels to SampleType the codec can accept
+		for(AudioChannelList::Iterator i = audio_channels.begin(); i != audio_channels.end(); ++i)
+		{
+			AudioChannel &chan = i.channel();
+			
+			if( !audioCodecInfo.canCompressType(chan.type) )
+				chan.type = audioCodecInfo.compressedType(chan.type);
+		}
 		
 		const AudioChannelCapabilities codecCapabilities = audioCodecInfo.getChannelCapabilites();
 		
@@ -98,7 +118,7 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 		{
 			AudioCodec *codec = audioCodecInfo.createCodec(header, audio_channels);
 			
-			MoxMxf::Descriptor *descriptor = codec->getDescriptor();
+			const MoxMxf::Descriptor *descriptor = codec->getDescriptor();
 			
 			const MoxMxf::UInt8 itemType = descriptor->getGCItemType();
 			const MoxMxf::UInt8 elementType = descriptor->getGCElementType();
@@ -124,7 +144,7 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 	{
 		VideoCodecUnit &unit = *i;
 		
-		MoxMxf::Descriptor *descriptor = unit.codec->getDescriptor();
+		const MoxMxf::Descriptor *descriptor = unit.codec->getDescriptor();
 		
 		const MoxMxf::UInt8 itemType = descriptor->getGCItemType();
 		const MoxMxf::UInt8 elementType = descriptor->getGCElementType();
@@ -142,7 +162,7 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 	{
 		AudioCodecUnit &unit = *i;
 		
-		MoxMxf::Descriptor *descriptor = unit.codec->getDescriptor();
+		const MoxMxf::Descriptor *descriptor = unit.codec->getDescriptor();
 		
 		const MoxMxf::UInt8 itemType = descriptor->getGCItemType();
 		const MoxMxf::UInt8 elementType = descriptor->getGCElementType();
@@ -183,7 +203,49 @@ OutputFile::pushFrame(const FrameBuffer &frame)
 	{
 		VideoCodecUnit &unit = *i;
 		
-		unit.codec->compress(frame);
+		bool input_matches = true;
+		
+		for(ChannelList::ConstIterator j = unit.channelList.begin(); j != unit.channelList.end(); ++j)
+		{
+			const char *name = j.name();
+			const Channel &encode_chan = j.channel();
+			
+			const Slice *source_slice = frame.findSlice(name);
+			
+			if(source_slice == NULL || source_slice->type != encode_chan.type)
+				input_matches = false;
+		}
+		
+		
+		FrameBufferPtr temp_buffer;
+		
+		if(!input_matches)
+		{
+			temp_buffer = new FrameBuffer(frame.width(), frame.height());
+			
+			for(ChannelList::ConstIterator j = unit.channelList.begin(); j != unit.channelList.end(); ++j)
+			{
+				const char *name = j.name();
+				const Channel &encode_chan = j.channel();
+				
+				const size_t pix_size = PixelSize(encode_chan.type);
+				const size_t chan_rowbytes = pix_size * frame.width();
+				const size_t chan_data_size = chan_rowbytes * frame.height();
+			
+				DataChunkPtr chan_data = new DataChunk(chan_data_size);
+				
+				temp_buffer->attachData(chan_data);
+				
+				temp_buffer->insert(name, Slice(encode_chan.type, (char *)chan_data->Data, pix_size, chan_rowbytes, 1, 1, 0));
+			}
+			
+			temp_buffer->copyFromFrame(frame);
+		}
+		
+		const FrameBuffer &frame_to_use = (!!temp_buffer ? *temp_buffer : frame);
+		
+		
+		unit.codec->compress(frame_to_use);
 		
 		DataChunkPtr data = unit.codec->getNextData();
 		
@@ -201,32 +263,32 @@ OutputFile::pushAudio(const AudioBuffer &audio)
 	const Rational &frame_rate = _header.frameRate();
 	const Rational &sample_rate = _header.sampleRate();
 	
-	const bool uniform_audio_frames = (sample_rate.Numerator * frame_rate.Denominator) % (sample_rate.Denominator * frame_rate.Numerator) == 0;
-										
-	UInt64 samples_this_frame = 0;
-	
-	if(uniform_audio_frames)
-	{
-		samples_this_frame = (sample_rate.Numerator * frame_rate.Denominator) / (sample_rate.Denominator * frame_rate.Numerator);
-	}
-	else
-	{
-		const double samples_per_frame = (double)(sample_rate.Numerator * frame_rate.Denominator) / (double)(sample_rate.Denominator * frame_rate.Numerator);
-		
-		const UInt64 samples_so_far = ((double)_audio_frame * samples_per_frame) + 0.5;
-		
-		const UInt64 samples_post_frame = ((double)(_audio_frame + 1) * samples_per_frame) + 0.5;
-		
-		samples_this_frame = samples_post_frame - samples_so_far;
-	}
-	
-	
 	AudioBuffer in_buffer = audio;
 	
 	assert(in_buffer.remaining() == in_buffer.length()); // already rewound
 	
 	while(in_buffer.remaining() > 0)
 	{
+		const bool uniform_audio_frames = (sample_rate.Numerator * frame_rate.Denominator) % (sample_rate.Denominator * frame_rate.Numerator) == 0;
+											
+		UInt64 samples_this_frame = 0;
+		
+		if(uniform_audio_frames)
+		{
+			samples_this_frame = (sample_rate.Numerator * frame_rate.Denominator) / (sample_rate.Denominator * frame_rate.Numerator);
+		}
+		else
+		{
+			const double samples_per_frame = (double)(sample_rate.Numerator * frame_rate.Denominator) / (double)(sample_rate.Denominator * frame_rate.Numerator);
+			
+			const UInt64 samples_so_far = ((double)_audio_frame * samples_per_frame) + 0.5;
+			
+			const UInt64 samples_post_frame = ((double)(_audio_frame + 1) * samples_per_frame) + 0.5;
+			
+			samples_this_frame = samples_post_frame - samples_so_far;
+		}
+		
+		
 		bool buffers_filled = true;
 	
 		for(std::list<AudioCodecUnit>::iterator i = _audio_codec_units.begin(); i != _audio_codec_units.end(); ++i)

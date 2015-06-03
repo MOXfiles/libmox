@@ -119,6 +119,7 @@ struct Slice
 class FrameBuffer : public RefCount<FrameBuffer>
 {
   public:
+	FrameBuffer(const Box2i &dataWindow);
 	FrameBuffer(int width, int height);
 	~FrameBuffer() {}
 	
@@ -127,7 +128,7 @@ class FrameBuffer : public RefCount<FrameBuffer>
 	void attachData(DataChunkPtr dat) { _data.push_back(dat);  }
 	
 	
-	const Box2i & displayWindow () const { return _dataWindow; }
+	const Box2i & dataWindow () const { return _dataWindow; }
 	int width() const { return (_dataWindow.max.x - _dataWindow.min.x + 1); }
 	int height() const { return (_dataWindow.max.y - _dataWindow.min.y + 1); }
 	

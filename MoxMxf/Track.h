@@ -78,7 +78,7 @@ namespace MoxMxf
 		SID getBodySID() const { return _bodySID; }
 		SID getIndexSID() const { return _indexSID; }
 		
-		Descriptor *getDescriptor() const { return _descriptor; }
+		const Descriptor & getDescriptor() const;
 		
 	  protected:
 		mxflib::MDObjectPtr getDescriptorObj() const { return _track_descriptor; }
