@@ -16,7 +16,156 @@
 
 using namespace MoxMxf;
 
-#ifdef __APPLE__
+#ifdef _WIN32
+
+PlatformIOStream::PlatformIOStream(HANDLE _hFile) :
+	_hFile(_hFile),
+	_I_opened(false)
+{
+	if(_hFile == INVALID_HANDLE_VALUE)
+		throw LogicExc("_hFile is INVALID_HANDLE_VALUE.");
+	
+	FileSeek(0);
+}
+
+
+PlatformIOStream::PlatformIOStream(const char *filepath, Cababilities abilities) :
+	_I_opened(false)
+{
+	if(abilities == ReadWrite)
+	{
+		_hFile = CreateFile(filepath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	}
+	else
+	{
+		_hFile = CreateFile(filepath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	}
+
+	if(_hFile == INVALID_HANDLE_VALUE)
+		throw IoExc("Couldn't open file.");
+
+	_I_opened = true;
+}
+
+
+PlatformIOStream::PlatformIOStream(const uint16_t *filepath, Cababilities abilities) :
+	_I_opened(false)
+{
+	if(abilities == ReadWrite)
+	{
+		_hFile = CreateFileW((LPCWSTR)filepath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	}
+	else
+	{
+		_hFile = CreateFileW((LPCWSTR)filepath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	}
+
+	if(_hFile == INVALID_HANDLE_VALUE)
+		throw IoExc("Couldn't open file.");
+
+	_I_opened = true;
+}
+
+
+PlatformIOStream::~PlatformIOStream()
+{
+	if(_I_opened)
+	{
+		BOOL result = CloseHandle(_hFile);
+
+		assert(result == TRUE);
+	}
+}
+
+
+int
+PlatformIOStream::FileSeek(UInt64 offset)
+{
+	LARGE_INTEGER lpos, out;
+
+	lpos.QuadPart = offset;
+
+	BOOL result = SetFilePointerEx(_hFile, lpos, &out, FILE_BEGIN);
+
+	assert(result && lpos.QuadPart == out.QuadPart);
+
+	return (result ? 0 : -1);
+}
+
+
+UInt64
+PlatformIOStream::FileRead(unsigned char *dest, UInt64 size)
+{
+	DWORD count = size, out = 0;
+	
+	BOOL result = ReadFile(_hFile, (LPVOID)dest, count, &out, NULL);
+
+	assert(result == TRUE);
+
+	return out;
+}
+
+
+UInt64
+PlatformIOStream::FileWrite(const unsigned char *source, UInt64 size)
+{
+	DWORD count = size, out = 0;
+	
+	BOOL result = WriteFile(_hFile, (LPVOID)source, count, &out, NULL);
+
+	assert(result == TRUE);
+	assert(out == size);
+	
+	return out;
+}
+
+
+UInt64
+PlatformIOStream::FileTell()
+{
+	UInt64 pos;
+	LARGE_INTEGER lpos, zero;
+
+	zero.QuadPart = 0;
+
+	BOOL result = SetFilePointerEx(_hFile, zero, &lpos, FILE_CURRENT);
+
+	if(!result)
+		throw IoExc("Error calling SetFilePointerEx().");
+
+	pos = lpos.QuadPart;
+	
+	return pos;
+}
+
+
+void
+PlatformIOStream::FileFlush()
+{
+	BOOL result = FlushFileBuffers(_hFile);
+
+	assert(result == TRUE);
+}
+
+
+void
+PlatformIOStream::FileTruncate(Int64 newsize)
+{
+	BOOL result = SetFileValidData(_hFile, newsize);
+	
+	assert(result == TRUE);
+}
+
+
+Int64
+PlatformIOStream::FileSize()
+{
+	return GetFileSize(_hFile, NULL);
+}
+
+
+#else
+
 
 PlatformIOStream::PlatformIOStream(FSIORefNum refNum) :
 	_refNum(refNum),
@@ -306,4 +455,4 @@ PlatformIOStream::FileSize()
 	return fork_size;
 }
 
-#endif // __APPLE__
+#endif // _WIN32

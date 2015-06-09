@@ -37,7 +37,11 @@ namespace MoxMxf
 		virtual Int64 FileSize();
 	
 	  private:
+#ifdef _WIN32
+		int _fp;
+#else
 		FILE *_fp;
+#endif
 	};
 }
 
