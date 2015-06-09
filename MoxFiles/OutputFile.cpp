@@ -16,7 +16,8 @@ namespace MoxFiles
 OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 	_header(header),
 	_mxf_file(NULL),
-	_audio_frame(0)
+	_video_frames(0),
+	_audio_frames(0)
 {
 	ChannelList &video_channels = _header.channels();
 
@@ -182,6 +183,40 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 
 OutputFile::~OutputFile()
 {
+	if(_video_codec_units.size() > 0 && _audio_codec_units.size() > 0)
+	{
+		if(_video_frames > _audio_frames)
+		{
+			// just waiting for a little more audio
+			assert(_video_frames == _audio_frames + 1);
+			
+			for(std::list<AudioCodecUnit>::iterator i = _audio_codec_units.begin(); i != _audio_codec_units.end(); ++i)
+			{
+				AudioCodecUnit &unit = *i;
+				
+				if(unit.audioBuffer)
+				{
+					unit.audioBuffer->fillRemaining();
+				
+					unit.codec->compress(*unit.audioBuffer);
+					
+					DataChunkPtr data = unit.codec->getNextData();
+					
+					if(data)
+					{
+						_mxf_file->PushEssence(unit.trackNumber, data);
+					}
+					else
+						assert(false); // expect to always get data right now
+					
+					unit.audioBuffer = NULL;
+				}
+				else
+					assert(false); // we're hoping there's just a little left over audio
+			}
+		}
+	}
+
 	delete _mxf_file;
 	
 	for(std::list<VideoCodecUnit>::iterator i = _video_codec_units.begin(); i != _video_codec_units.end(); ++i)
@@ -253,6 +288,8 @@ OutputFile::pushFrame(const FrameBuffer &frame)
 			throw MoxMxf::NoImplExc("Not handling buffered data.");
 		
 		_mxf_file->PushEssence(unit.trackNumber, data);
+		
+		_video_frames++;
 	}
 }
 
@@ -279,11 +316,13 @@ OutputFile::pushAudio(const AudioBuffer &audio)
 		}
 		else
 		{
+			const int current_frame = _audio_frames;
+		
 			const double samples_per_frame = (double)(sample_rate.Numerator * frame_rate.Denominator) / (double)(sample_rate.Denominator * frame_rate.Numerator);
 			
-			const UInt64 samples_so_far = ((double)_audio_frame * samples_per_frame) + 0.5;
+			const UInt64 samples_so_far = ((double)current_frame * samples_per_frame) + 0.5;
 			
-			const UInt64 samples_post_frame = ((double)(_audio_frame + 1) * samples_per_frame) + 0.5;
+			const UInt64 samples_post_frame = ((double)(current_frame + 1) * samples_per_frame) + 0.5;
 			
 			samples_this_frame = samples_post_frame - samples_so_far;
 		}
@@ -349,7 +388,7 @@ OutputFile::pushAudio(const AudioBuffer &audio)
 				unit.audioBuffer = NULL;
 			}
 			
-			_audio_frame++;
+			_audio_frames++;
 		}
 	}
 }

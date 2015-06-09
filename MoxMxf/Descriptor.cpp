@@ -209,17 +209,17 @@ VideoDescriptor::makeDescriptorObj() const
 	descriptor->AddChild(AspectRatio_UL)->SetInt("Denominator", _aspect_ratio.Denominator);
 	descriptor->AddChild(ActiveFormatDescriptor_UL)->SetUInt(_active_format_descriptor);
 	
-	if(_video_line_map.size() > 0)
-	{
-		mxflib::MDObjectPtr video_line_map_array = descriptor->AddChild(VideoLineMap_UL);
-		
-		for(int i=0; i < _video_line_map.size(); i++)
-		{
-			video_line_map_array->AddChild()->SetInt( _video_line_map[i] );
-		}
-		
-		assert(video_line_map_array->GetClass() == TYPEARRAY);
-	}
+	//if(_video_line_map.size() > 0)
+	//{
+	//	mxflib::MDObjectPtr video_line_map_array = descriptor->AddChild(VideoLineMap_UL);
+	//	
+	//	for(int i=0; i < _video_line_map.size(); i++)
+	//	{
+	//		video_line_map_array->AddChild()->SetInt( _video_line_map[i] );
+	//	}
+	//	
+	//	assert(video_line_map_array->GetClass() == TYPEARRAY);
+	//}
 	
 	descriptor->AddChild(AlphaTransparency_UL)->SetUInt(_alpha_transparency);
 	descriptor->AddChild(TransferCharacteristic_UL)->SetValue(_capture_gamma.GetValue(), _capture_gamma.Size());
@@ -557,7 +557,7 @@ AudioDescriptor::makeDescriptorObj() const
 	descriptor->AddChild(AudioSamplingRate_UL)->SetInt("Numerator", _audio_sampling_rate.Numerator);
 	descriptor->AddChild(AudioSamplingRate_UL)->SetInt("Denominator", _audio_sampling_rate.Denominator);
 	descriptor->AddChild(Locked_UL)->SetUInt(_locked_to_video);
-	descriptor->AddChild(AudioRefLevel_UL)->SetUInt(_audio_ref_level);
+	//descriptor->AddChild(AudioRefLevel_UL)->SetUInt(_audio_ref_level);
 	descriptor->AddChild(ChannelCount_UL)->SetUInt(_channel_count);
 	descriptor->AddChild(QuantizationBits_UL)->SetUInt(_quantization_bits);
 	

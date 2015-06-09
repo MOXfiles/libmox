@@ -47,6 +47,8 @@ namespace MoxFiles
 		
 		std::list<VideoCodecUnit> _video_codec_units;
 		
+		int _video_frames;
+		
 		
 		typedef struct AudioCodecUnit
 		{
@@ -62,7 +64,7 @@ namespace MoxFiles
 		
 		std::list<AudioCodecUnit> _audio_codec_units;
 		
-		int _audio_frame;
+		int _audio_frames;
 	};
 
 } // namespace
