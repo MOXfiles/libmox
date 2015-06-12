@@ -186,7 +186,7 @@ InputFile::getDuration() const
 		duration = t->second->getDuration();
 	
 		if(duration > 0)
-			return duration
+			return duration;
 	}
 #else
 	// lots of asserts for the debug case
@@ -241,7 +241,7 @@ InputFile::getEditRate() const
 		edit_rate = t->second->getEditRate();
 	
 		if(edit_rate.Numerator != 0 && edit_rate.Denominator != 0)
-			return edit_rate
+			return edit_rate;
 	}
 #else
 	// lots of asserts for the debug case

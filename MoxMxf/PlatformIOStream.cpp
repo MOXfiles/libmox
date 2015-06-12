@@ -34,7 +34,7 @@ PlatformIOStream::PlatformIOStream(const char *filepath, Cababilities abilities)
 {
 	if(abilities == ReadWrite)
 	{
-		_hFile = CreateFile(filepath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		_hFile = CreateFile(filepath, (GENERIC_READ | GENERIC_WRITE), 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	}
 	else
 	{
@@ -99,8 +99,8 @@ PlatformIOStream::FileRead(unsigned char *dest, UInt64 size)
 	DWORD count = size, out = 0;
 	
 	BOOL result = ReadFile(_hFile, (LPVOID)dest, count, &out, NULL);
-
-	assert(result == TRUE);
+	
+	assert(result == TRUE || out == 0); // libmxf will try to read at EOF when writing, GetLastError() == 0 ?
 
 	return out;
 }
