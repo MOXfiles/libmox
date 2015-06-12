@@ -331,7 +331,8 @@ OutputFile::PushEssence(TrackNum trackNumber, mxflib::DataChunkPtr data, int Key
 		
 		const Length frames_written = _writer->WritePartition(1, 0, false);
 		
-		assert(frames_written == 1);
+		if(frames_written != 1)
+			throw IoExc("Failed to write frame");
 		
 		if(_index_manager)
 		{

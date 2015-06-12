@@ -27,6 +27,8 @@ namespace MoxFiles
 		OutputFile(IOStream &outfile, const Header &header);
 		~OutputFile();
 		
+		const Header & header() const { return _header; }
+		
 		void pushFrame(const FrameBuffer &frame);
 		
 		void pushAudio(const AudioBuffer &audio);

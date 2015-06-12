@@ -14,7 +14,7 @@
 namespace mxflib
 {
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 void debug(const char *Fmt, ...)
 {
 	va_list args;
@@ -24,7 +24,7 @@ void debug(const char *Fmt, ...)
 	vprintf(Fmt, args);
 	va_end(args);
 }
-#endif
+//#endif
 
 void warning(const char *Fmt, ...)
 {
