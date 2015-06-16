@@ -330,6 +330,11 @@ class SequentialReadHandler : public mxflib::GCReadHandler_Base
 FramePtr
 InputFile::getFrame(Position EditUnit, SID bodySID, SID indexSID)
 {
+	assert(EditUnit >= 0 && EditUnit < getDuration());
+
+	if(EditUnit < 0)
+		throw ArgExc("Can't get negative frame number");
+
 	FramePtr the_frame = new Frame;
 	
 	Frame::FrameParts &frameparts = the_frame->getFrameParts();
