@@ -110,6 +110,21 @@ namespace MoxMxf
 		UInt32 getImageStartOffset() const { return _image_start_offset; }
 		UInt32 getImageEndOffset() const { return _image_end_offset; }
 		
+		typedef enum CaptureGamma
+		{
+			CaptureGamma_Unknown = 0,
+			CaptureGamma_BT470,
+			CaptureGamma_BT709,
+			CaptureGamma_SMPTE240M,
+			CaptureGamma_SMPTE274,
+			CaptureGamma_BT1361,
+			CaptureGamma_Linear,
+			CaptureGamma_DC28
+		};
+		
+		CaptureGamma getCaptureGamma() const;
+		void setCaputeGamma(CaptureGamma gamma);
+		
 	  protected:
 		void setPictureEssenceCoding(const mxflib::UL &ul) { _picture_essence_coding = ul; }
 	  

@@ -96,12 +96,23 @@ VideoDescriptor::VideoDescriptor(mxflib::MDObjectPtr descriptor) :
 	}
 	
 	_alpha_transparency = descriptor->GetUInt(AlphaTransparency_UL);
-	_capture_gamma = mxflib::UL(descriptor->Child(TransferCharacteristic_UL)->GetData().Data);
+	
+	mxflib::MDObjectPtr capture_gamma = descriptor->Child(TransferCharacteristic_UL);
+	
+	if(capture_gamma)
+		_capture_gamma = mxflib::UL(capture_gamma->GetData().Data);
+	
 	_image_alignment_offset = descriptor->GetUInt(ImageAlignmentOffset_UL);
 	_image_start_offset = descriptor->GetUInt(ImageStartOffset_UL);
 	_image_end_offset = descriptor->GetUInt(ImageEndOffset_UL);
 	_field_dominance = descriptor->GetUInt(FieldDominance_UL);
-	_picture_essence_coding = UL(descriptor->Child(PictureEssenceCoding_UL)->GetData().Data);
+	
+	mxflib::MDObjectPtr picture_essence_coding = descriptor->Child(PictureEssenceCoding_UL);
+	
+	if(picture_essence_coding)
+		_picture_essence_coding = UL(picture_essence_coding->GetData().Data);
+	else
+		assert(false);
 }
 
 // Capture Gamma
@@ -145,7 +156,7 @@ VideoDescriptor::VideoDescriptor(Rational sample_rate, UInt32 width, UInt32 heig
 	_aspect_ratio(Rational(width, height)),
 	_active_format_descriptor(0),
 	_alpha_transparency(0),
-	_capture_gamma(Gamma_BT709_UL),
+	//_capture_gamma(Gamma_BT709_UL),
 	_image_alignment_offset(0),
 	_image_start_offset(0),
 	_image_end_offset(0),
@@ -222,16 +233,71 @@ VideoDescriptor::makeDescriptorObj() const
 	//}
 	
 	descriptor->AddChild(AlphaTransparency_UL)->SetUInt(_alpha_transparency);
-	descriptor->AddChild(TransferCharacteristic_UL)->SetValue(_capture_gamma.GetValue(), _capture_gamma.Size());
+	
+	if(!!_capture_gamma)
+		descriptor->AddChild(TransferCharacteristic_UL)->SetValue(_capture_gamma.GetValue(), _capture_gamma.Size());
+	
 	descriptor->AddChild(ImageAlignmentOffset_UL)->SetUInt(_image_alignment_offset);
 	descriptor->AddChild(ImageStartOffset_UL)->SetUInt(_image_start_offset);
 	descriptor->AddChild(ImageEndOffset_UL)->SetUInt(_image_end_offset);
-	descriptor->AddChild(FieldDominance_UL)->SetUInt(_field_dominance);
+	//descriptor->AddChild(FieldDominance_UL)->SetUInt(_field_dominance);
 	
 	assert(!!_picture_essence_coding); // you must call setPictureEssenceCoding()
 	descriptor->AddChild(PictureEssenceCoding_UL)->SetValue(_picture_essence_coding.GetValue(), _picture_essence_coding.Size());
 	
 	return descriptor;
+}
+
+VideoDescriptor::CaptureGamma
+VideoDescriptor::getCaptureGamma() const
+{
+	if(_capture_gamma == Gamma_BT470_UL)
+	{
+		return CaptureGamma_BT470;
+	}
+	else if(_capture_gamma == Gamma_BT709_UL)
+	{
+		return CaptureGamma_BT709;
+	}
+	else if(_capture_gamma == Gamma_SMPTE240M_UL)
+	{
+		return CaptureGamma_SMPTE240M;
+	}
+	else if(_capture_gamma == Gamma_SMPTE274_UL)
+	{
+		return CaptureGamma_SMPTE274;
+	}
+	else if(_capture_gamma == Gamma_BT1361_UL)
+	{
+		return CaptureGamma_BT1361;
+	}
+	else if(_capture_gamma == Gamma_Linear_UL)
+	{
+		return CaptureGamma_Linear;
+	}
+	else if(_capture_gamma == Gamma_DC28_UL)
+	{
+		return CaptureGamma_DC28;
+	}
+
+	return CaptureGamma_Unknown;
+}
+
+void
+VideoDescriptor::setCaputeGamma(CaptureGamma gamma)
+{
+	switch(gamma)
+	{
+		case CaptureGamma_BT470:		_capture_gamma = Gamma_BT470_UL;		break;
+		case CaptureGamma_BT709:		_capture_gamma = Gamma_BT709_UL;		break;
+		case CaptureGamma_SMPTE240M:	_capture_gamma = Gamma_SMPTE240M_UL;	break;
+		case CaptureGamma_SMPTE274:		_capture_gamma = Gamma_SMPTE274_UL;		break;
+		case CaptureGamma_BT1361:		_capture_gamma = Gamma_BT1361_UL;		break;
+		case CaptureGamma_Linear:		_capture_gamma = Gamma_Linear_UL;		break;
+		case CaptureGamma_DC28:			_capture_gamma = Gamma_DC28_UL;			break;
+		
+		default:						_capture_gamma = UL();					break;
+	}
 }
 
 CDCIDescriptor::CDCIDescriptor(mxflib::MDObjectPtr descriptor) :
