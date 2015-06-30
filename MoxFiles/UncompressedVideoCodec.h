@@ -7,19 +7,19 @@
  *
  */
 
-#ifndef MOXFILES_UNCOMPRESSEDCODEC_H
-#define MOXFILES_UNCOMPRESSEDCODEC_H
+#ifndef MOXFILES_UNCOMPRESSEDVIDEOCODEC_H
+#define MOXFILES_UNCOMPRESSEDVIDEOCODEC_H
 
 #include <MoxFiles/Codec.h>
 
 namespace MoxFiles
 {
-	class UncompressedCodec : public VideoCodec
+	class UncompressedVideoCodec : public VideoCodec
 	{
 	  public:
-		UncompressedCodec(const Header &header, const ChannelList &channels);
-		UncompressedCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels);
-		virtual ~UncompressedCodec();
+		UncompressedVideoCodec(const Header &header, const ChannelList &channels);
+		UncompressedVideoCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels);
+		virtual ~UncompressedVideoCodec();
 		
 		virtual const MoxMxf::VideoDescriptor * getDescriptor() const { return &_descriptor; }
 				
@@ -45,11 +45,11 @@ namespace MoxFiles
 		unsigned char _padding;
 	};
 	
-	class UncompressedCodecInfo : public VideoCodecInfo
+	class UncompressedVideoCodecInfo : public VideoCodecInfo
 	{
 	  public:
-		UncompressedCodecInfo() {}
-		virtual ~UncompressedCodecInfo() {}
+		UncompressedVideoCodecInfo() {}
+		virtual ~UncompressedVideoCodecInfo() {}
 		
 		virtual bool canCompressType(PixelType pixelType) const;
 		
@@ -61,4 +61,4 @@ namespace MoxFiles
 
 } // namepsace
 
-#endif
+#endif // MOXFILES_UNCOMPRESSEDVIDEOCODEC_H

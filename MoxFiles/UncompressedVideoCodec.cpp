@@ -7,7 +7,7 @@
  *
  */
 
-#include <MoxFiles/UncompressedCodec.h>
+#include <MoxFiles/UncompressedVideoCodec.h>
 
 #include <MoxFiles/Thread.h>
 
@@ -44,7 +44,7 @@ PixelLayoutDepth(PixelType type)
 		
 		case MoxFiles::HALF:
 			assert(false); // uncompressed MXF doesn't know about half
-			return 16;
+			return 253;
 		
 		case MoxFiles::FLOAT:
 			return 254;
@@ -58,7 +58,9 @@ PixelLayoutBits(PixelType type)
 {
 	const unsigned int depth = PixelLayoutDepth(type);
 	
-	return (depth == 254 ? 32 : depth);
+	return (depth == 254 ? 32 :
+			depth == 253 ? 16 :
+			depth);
 }
 
 
@@ -95,11 +97,14 @@ PixelTypeFromBits(unsigned int bit_depth)
 }
 
 
-UncompressedCodec::UncompressedCodec(const Header &header, const ChannelList &channels) :
+UncompressedVideoCodec::UncompressedVideoCodec(const Header &header, const ChannelList &channels) :
 	VideoCodec(header, channels),
-	_descriptor(header.frameRate(), header.width(), header.height()),
+	_descriptor(header.frameRate(), header.width(), header.height(), MoxMxf::VideoDescriptor::VideoCodecUncompressedRGB),
 	_padding(0)
 {
+	setWindows(_descriptor, header);
+	
+	
 	ChannelList in_channels = channels;
 
 	if(const Channel *r_channel = in_channels.findChannel("R"))
@@ -160,7 +165,7 @@ UncompressedCodec::UncompressedCodec(const Header &header, const ChannelList &ch
 }
 
 
-UncompressedCodec::UncompressedCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) :
+UncompressedVideoCodec::UncompressedVideoCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) :
 	VideoCodec(descriptor, header, channels),
 	_descriptor(dynamic_cast<const MoxMxf::RGBADescriptor &>(descriptor)),
 	_padding(0)
@@ -192,7 +197,7 @@ UncompressedCodec::UncompressedCodec(const MoxMxf::VideoDescriptor &descriptor, 
 	}
 }
 
-UncompressedCodec::~UncompressedCodec()
+UncompressedVideoCodec::~UncompressedVideoCodec()
 {
 
 }
@@ -270,7 +275,7 @@ EncodeChannel(TaskGroup *taskGroup, char *dest_origin, ptrdiff_t stride, ptrdiff
 class CompressChannelBits : public Task
 {
   public:
-	CompressChannelBits(TaskGroup *group, char *origin, ptrdiff_t rowbytes, const std::vector<UncompressedCodec::ChannelBits> &channelVec, const FrameBuffer &frame, int y);
+	CompressChannelBits(TaskGroup *group, char *origin, ptrdiff_t rowbytes, const std::vector<UncompressedVideoCodec::ChannelBits> &channelVec, const FrameBuffer &frame, int y);
 	~CompressChannelBits() {}
 	
 	virtual void execute();
@@ -278,14 +283,14 @@ class CompressChannelBits : public Task
   private:
 	char * const _origin;
 	const ptrdiff_t _rowbytes;
-	const std::vector<UncompressedCodec::ChannelBits> &_channelVec;
+	const std::vector<UncompressedVideoCodec::ChannelBits> &_channelVec;
 	const FrameBuffer &_frame;
 	const int _y;
 	
 	static void CompressChannel(char *dst_row, ptrdiff_t dst_stride, int bit_depth, const Slice &row_slice, int width);
 };
 
-CompressChannelBits::CompressChannelBits(TaskGroup *group, char *origin, ptrdiff_t rowbytes, const std::vector<UncompressedCodec::ChannelBits> &channelVec, const FrameBuffer &frame, int y) :
+CompressChannelBits::CompressChannelBits(TaskGroup *group, char *origin, ptrdiff_t rowbytes, const std::vector<UncompressedVideoCodec::ChannelBits> &channelVec, const FrameBuffer &frame, int y) :
 	Task(group),
 	_origin(origin),
 	_rowbytes(rowbytes),
@@ -303,7 +308,7 @@ CompressChannelBits::execute()
 	
 	for(int i = 0; i < _channelVec.size(); i++)
 	{
-		const UncompressedCodec::ChannelBits &chanbit = _channelVec[i];
+		const UncompressedVideoCodec::ChannelBits &chanbit = _channelVec[i];
 		
 		assert(PixelBits(chanbit.type) % 8 == 0); // not handling weird bit depths yet
 		
@@ -315,7 +320,7 @@ CompressChannelBits::execute()
 	
 	for(int i = 0; i < _channelVec.size(); i++)
 	{
-		const UncompressedCodec::ChannelBits &chanbit = _channelVec[i];
+		const UncompressedVideoCodec::ChannelBits &chanbit = _channelVec[i];
 		
 		const Slice *frame_slice = _frame.findSlice(chanbit.name);
 		
@@ -403,7 +408,7 @@ CompressChannelBits::CompressChannel(char *dst_row, ptrdiff_t dst_stride, int bi
 
 
 void
-UncompressedCodec::compress(const FrameBuffer &frame)
+UncompressedVideoCodec::compress(const FrameBuffer &frame)
 {
 	if(frame.dataWindow() != this->dataWindow())
 		throw MoxMxf::ArgExc("Frame buffer doesn't match expected dimensions");
@@ -458,7 +463,7 @@ UncompressedCodec::compress(const FrameBuffer &frame)
 class DecompressChannelBits : public Task
 {
   public:
-	DecompressChannelBits(TaskGroup *group, const FrameBuffer &frame, const char *origin, ptrdiff_t rowbytes, const std::vector<UncompressedCodec::ChannelBits> &channelVec, int y);
+	DecompressChannelBits(TaskGroup *group, const FrameBuffer &frame, const char *origin, ptrdiff_t rowbytes, const std::vector<UncompressedVideoCodec::ChannelBits> &channelVec, int y);
 	~DecompressChannelBits() {}
 	
 	virtual void execute();
@@ -467,13 +472,13 @@ class DecompressChannelBits : public Task
 	const FrameBuffer &_frame;
 	const char * const _origin;
 	const ptrdiff_t _rowbytes;
-	const std::vector<UncompressedCodec::ChannelBits> &_channelVec;
+	const std::vector<UncompressedVideoCodec::ChannelBits> &_channelVec;
 	const int _y;
 	
 	static void DecompressChannel(const Slice &row_slice, const char *src_row, ptrdiff_t src_stride, int bit_depth, int width);
 };
 
-DecompressChannelBits::DecompressChannelBits(TaskGroup *group, const FrameBuffer &frame, const char *origin, ptrdiff_t rowbytes, const std::vector<UncompressedCodec::ChannelBits> &channelVec, int y) :
+DecompressChannelBits::DecompressChannelBits(TaskGroup *group, const FrameBuffer &frame, const char *origin, ptrdiff_t rowbytes, const std::vector<UncompressedVideoCodec::ChannelBits> &channelVec, int y) :
 	Task(group),
 	_frame(frame),
 	_origin(origin),
@@ -491,7 +496,7 @@ DecompressChannelBits::execute()
 	
 	for(int i = 0; i < _channelVec.size(); i++)
 	{
-		const UncompressedCodec::ChannelBits &chanbit = _channelVec[i];
+		const UncompressedVideoCodec::ChannelBits &chanbit = _channelVec[i];
 		
 		assert(PixelBits(chanbit.type) % 8 == 0); // not handling weird bit depths yet
 		
@@ -503,7 +508,7 @@ DecompressChannelBits::execute()
 	
 	for(int i = 0; i < _channelVec.size(); i++)
 	{
-		const UncompressedCodec::ChannelBits &chanbit = _channelVec[i];
+		const UncompressedVideoCodec::ChannelBits &chanbit = _channelVec[i];
 		
 		const Slice *frame_slice = _frame.findSlice(chanbit.name);
 		
@@ -587,7 +592,7 @@ DecompressChannelBits::DecompressChannel(const Slice &row_slice, const char *src
 
 
 void
-UncompressedCodec::decompress(const DataChunk &data)
+UncompressedVideoCodec::decompress(const DataChunk &data)
 {
 	unsigned int bits_per_pixel = 0;
 	
@@ -660,29 +665,29 @@ UncompressedCodec::decompress(const DataChunk &data)
 
 
 bool
-UncompressedCodecInfo::canCompressType(PixelType pixelType) const
+UncompressedVideoCodecInfo::canCompressType(PixelType pixelType) const
 {
 	return (pixelType == UINT8 || pixelType == UINT16 || pixelType == FLOAT);
 }
 
 
 ChannelCapabilities
-UncompressedCodecInfo::getChannelCapabilites() const
+UncompressedVideoCodecInfo::getChannelCapabilites() const
 {
 	return (Channels_RGB | Channels_RGBA | Channels_A);
 }
 
 
 VideoCodec * 
-UncompressedCodecInfo::createCodec(const Header &header, const ChannelList &channels) const
+UncompressedVideoCodecInfo::createCodec(const Header &header, const ChannelList &channels) const
 {
-	return new UncompressedCodec(header, channels);
+	return new UncompressedVideoCodec(header, channels);
 }
 
 VideoCodec * 
-UncompressedCodecInfo::createCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) const
+UncompressedVideoCodecInfo::createCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) const
 {
-	return new UncompressedCodec(descriptor, header, channels);
+	return new UncompressedVideoCodec(descriptor, header, channels);
 }
 
 

@@ -15,6 +15,8 @@ namespace MoxFiles
 	enum VideoCompression
 	{
 		UNCOMPRESSED  = 0,	// no compression
+		PNG,
+		OPENEXR,
 		MPEG,
 		
 

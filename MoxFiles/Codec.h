@@ -56,6 +56,8 @@ namespace MoxFiles
 		virtual void storeData(DataChunkPtr dat);
 		virtual void storeFrame(FrameBufferPtr frm);
 		
+		static void setWindows(MoxMxf::VideoDescriptor &descriptor, const Header &header);
+		
 	  private:
 		std::queue<DataChunkPtr> _data_queue;
 		std::queue<FrameBufferPtr> _frame_queue;
@@ -65,12 +67,14 @@ namespace MoxFiles
 	enum Channels
 	{
 		Channels_None	= 0,
-		Channels_RGB	= 1,
-		Channels_RGBA	= 2,
-		Channels_A		= 4,
-		Channels_Any	= 8,
+		Channels_RGB	= 1L << 0,
+		Channels_RGBA	= 1L << 1,
+		Channels_Y		= 1L << 2,
+		Channels_YA		= 1L << 3,
+		Channels_A		= 1L << 4,
+		Channels_Any	= 1L << 5, // i.e. a channel with some random name like
 		
-		Channels_All	= Channels_RGB | Channels_RGBA | Channels_A | Channels_Any
+		Channels_All	= Channels_RGB | Channels_RGBA | Channels_Y | Channels_YA | Channels_A | Channels_Any
 	};
 	
 	typedef UInt32 ChannelCapabilities;

@@ -9,6 +9,8 @@
 
 #include <MoxMxf/Descriptor.h>
 
+#include <MoxMxf/Exception.h>
+
 namespace MoxMxf
 {
 
@@ -419,7 +421,22 @@ static const mxflib::UL GC_Uncompressed_FrameWrapped_UL(GC_Uncompressed_FrameWra
 static const UInt8 Undefined_Uncompressed_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x01, 0x02, 0x01, 0x7f, 0x00, 0x00, 0x00 };
 static const mxflib::UL Undefined_Uncompressed_Picture_Coding_UL(Undefined_Uncompressed_Picture_Coding_Data);
 
-RGBADescriptor::RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height) :
+
+// MOX ULs
+static const UInt8 GC_PNG_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x15, 0x01, 0x00 };
+static const mxflib::UL GC_PNG_FrameWrapped_UL(GC_PNG_FrameWrapped_Data);
+
+static const UInt8 GC_OpenEXR_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x16, 0x01, 0x00 };
+static const mxflib::UL GC_OpenEXR_FrameWrapped_UL(GC_OpenEXR_FrameWrapped_Data);
+
+static const UInt8 PNG_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x03, 0x01, 0x00, 0x00, 0x00 };
+static const mxflib::UL PNG_Picture_Coding_UL(PNG_Picture_Coding_Data);
+
+static const UInt8 OpenEXR_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x04, 0x01, 0x00, 0x00, 0x00 };
+static const mxflib::UL OpenEXR_Picture_Coding_UL(OpenEXR_Picture_Coding_Data);
+
+
+RGBADescriptor::RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height, VideoCodec codec) :
 	VideoDescriptor(sample_rate, width, height),
 	_component_max_ref(255),
 	_component_min_ref(0),
@@ -427,9 +444,23 @@ RGBADescriptor::RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height
 	_alpha_min_ref(0),
 	_scanning_direction(ScanningDir_LRTB)
 {
-	setEssenceContainerLabel(GC_Uncompressed_FrameWrapped_UL);
-
-	setPictureEssenceCoding(Undefined_Uncompressed_Picture_Coding_UL);
+	if(codec == VideoCodecUncompressedRGB)
+	{
+		setEssenceContainerLabel(GC_Uncompressed_FrameWrapped_UL);
+		setPictureEssenceCoding(Undefined_Uncompressed_Picture_Coding_UL);
+	}
+	else if(codec == VideoCodecPNG)
+	{
+		setEssenceContainerLabel(GC_PNG_FrameWrapped_UL);
+		setPictureEssenceCoding(PNG_Picture_Coding_UL);
+	}
+	else if(codec == VideoCodecOpenEXR)
+	{
+		setEssenceContainerLabel(GC_OpenEXR_FrameWrapped_UL);
+		setPictureEssenceCoding(OpenEXR_Picture_Coding_UL);
+	}
+	else
+		throw ArgExc("Unsupported RGB codec");
 }
 
 RGBADescriptor::RGBADescriptor(const RGBADescriptor &other) :
@@ -452,7 +483,7 @@ RGBADescriptor::makeDescriptorObj() const
 	//descriptor->AddChild(ComponentMinRef_UL)->SetUInt(_component_min_ref);
 	//descriptor->AddChild(AlphaMaxRef_UL)->SetUInt(_alpha_max_ref);
 	//descriptor->AddChild(AlphaMinRef_UL)->SetUInt(_alpha_min_ref);
-	descriptor->AddChild(ScanningDirection_UL)->SetUInt(_scanning_direction);
+	//descriptor->AddChild(ScanningDirection_UL)->SetUInt(_scanning_direction);
 
 	if(_pixel_layout.size() > 0)
 	{
@@ -499,6 +530,30 @@ RGBADescriptor::makeDescriptorObj() const
 		assert(false); // pixel layout wasn't set
 	
 	return descriptor;
+}
+
+
+VideoDescriptor::VideoCodec
+RGBADescriptor::getVideoCodec() const
+{
+	const mxflib::UL &coding = getPictureEssenceCoding();
+	
+	if(coding.Matches(Undefined_Uncompressed_Picture_Coding_UL))
+	{
+		return VideoCodecUncompressedRGB;
+	}
+	else if(coding.Matches(PNG_Picture_Coding_UL))
+	{
+		return VideoCodecPNG;
+	}
+	else if(coding.Matches(OpenEXR_Picture_Coding_UL))
+	{
+		return VideoCodecOpenEXR;
+	}
+	else
+		assert(false);
+	
+	return VideoCodecUnknown;
 }
 
 

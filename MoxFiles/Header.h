@@ -26,7 +26,7 @@ class Header
 			const Box2i &displayWindow,
 			const Rational &frameRate = Rational(24, 1),
 			const Rational &sampleRate = Rational(0, 1),
-			VideoCompression videoCompression = UNCOMPRESSED,
+			VideoCompression videoCompression = PNG,
 			AudioCompression audioCompression = PCM,
 			int duration = 0,
 			Int64 audioDuration = 0);

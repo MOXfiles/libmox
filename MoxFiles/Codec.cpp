@@ -9,7 +9,9 @@
 
 #include <MoxFiles/Codec.h>
 
-#include <MoxFiles/UncompressedCodec.h>
+#include <MoxFiles/UncompressedVideoCodec.h>
+#include <MoxFiles/PNGCodec.h>
+#include <MoxFiles/OpenEXRCodec.h>
 #include <MoxFiles/MPEGCodec.h>
 
 #include <MoxFiles/UncompressedPCMCodec.h>
@@ -146,6 +148,40 @@ VideoCodec::storeFrame(FrameBufferPtr frm)
 }
 
 
+void
+VideoCodec::setWindows(MoxMxf::VideoDescriptor &descriptor, const Header &header)
+{
+	const Box2i &dataW = header.dataWindow();
+	const Box2i &dispW = header.displayWindow();
+	Box2i sampleW = dataW;
+	
+	const Box2iAttribute *sampledWindowAttr = header.findTypedAttribute<Box2iAttribute>("sampledWindow");
+	
+	if(sampledWindowAttr != NULL)
+	{
+		sampleW = sampledWindowAttr->value();
+	}
+	
+	assert(dispW.min.x == 0 && dispW.min.y == 0);
+	
+	descriptor.setStoredWidth(dataW.max.x - dataW.min.x + 1);
+	descriptor.setStoredHeight(dataW.max.y - dataW.min.y + 1);
+	descriptor.setSampledWidth(sampleW.max.x - sampleW.min.x + 1);
+	descriptor.setSampledHeight(sampleW.max.y - sampleW.min.y + 1);
+	descriptor.setDisplayWidth(dispW.max.x - dispW.min.x + 1);
+	descriptor.setDisplayHeight(dispW.max.y - dispW.min.y + 1);
+	
+	descriptor.setSampledXOffset(sampleW.min.x - dataW.min.x);
+	descriptor.setSampledYOffset(sampleW.min.y - dataW.min.y);
+	descriptor.setDisplayXOffset(dispW.min.x - sampleW.min.x);
+	descriptor.setDisplayYOffset(dispW.min.y - sampleW.min.y);
+	
+	assert(descriptor.getImageAlignmentOffset() == 0);
+	assert(descriptor.getImageStartOffset() == 0);
+	assert(descriptor.getImageEndOffset() == 0);
+}
+
+
 PixelType
 VideoCodecInfo::compressedType(PixelType pixelType) const
 {
@@ -217,60 +253,6 @@ VideoCodecInfo::compressedType(PixelType pixelType) const
 }
 
 
-SampleType
-AudioCodecInfo::compressedType(SampleType sampleType) const
-{
-	// round up
-	switch(sampleType)
-	{
-		case MoxFiles::UNSIGNED8:
-			if( canCompressType(MoxFiles::UNSIGNED8) )
-				return MoxFiles::UNSIGNED8;
-		
-		case MoxFiles::SIGNED16:
-			if( canCompressType(MoxFiles::SIGNED16) )
-				return MoxFiles::SIGNED16;
-		
-		case MoxFiles::SIGNED24:
-			if( canCompressType(MoxFiles::SIGNED24) )
-				return MoxFiles::SIGNED24;
-		
-		case MoxFiles::SIGNED32:
-			if( canCompressType(MoxFiles::SIGNED32) )
-				return MoxFiles::SIGNED32;
-		
-		case MoxFiles::AFLOAT:
-			if( canCompressType(MoxFiles::AFLOAT) )
-				return MoxFiles::AFLOAT;
-	}
-	
-	// no dice, round down
-	switch(sampleType)
-	{
-		case MoxFiles::AFLOAT:
-			if( canCompressType(MoxFiles::AFLOAT) )
-				return MoxFiles::AFLOAT;
-				
-		case MoxFiles::SIGNED32:
-			if( canCompressType(MoxFiles::SIGNED32) )
-				return MoxFiles::SIGNED32;
-				
-		case MoxFiles::SIGNED24:
-			if( canCompressType(MoxFiles::SIGNED24) )
-				return MoxFiles::SIGNED24;
-				
-		case MoxFiles::SIGNED16:
-			if( canCompressType(MoxFiles::SIGNED16) )
-				return MoxFiles::SIGNED16;
-				
-		case MoxFiles::UNSIGNED8:
-			if( canCompressType(MoxFiles::UNSIGNED8) )
-				return MoxFiles::UNSIGNED8;
-	}
-	
-	throw MoxMxf::LogicExc("Unable to find a compressed type");
-}
-
 
 typedef std::map<VideoCompression, VideoCodecInfo *> VideoCodecList;
 	
@@ -304,7 +286,9 @@ getVideoCodecInfo(VideoCompression videoCompression)
 	
 	if( codecList.empty() )
 	{
-		codecList[UNCOMPRESSED] = new UncompressedCodecInfo;
+		codecList[UNCOMPRESSED] = new UncompressedVideoCodecInfo;
+		codecList[PNG] = new PNGCodecInfo;
+		codecList[OPENEXR] = new OpenEXRCodecInfo;
 		codecList[MPEG] = new MPEGCodecInfo;
 	}
 	
@@ -321,6 +305,14 @@ getVideoCodecInfo(MoxMxf::VideoDescriptor::VideoCodec codec)
 	if(codec == MoxMxf::VideoDescriptor::VideoCodecUncompressedRGB)
 	{
 		return getVideoCodecInfo(UNCOMPRESSED);
+	}
+	if(codec == MoxMxf::VideoDescriptor::VideoCodecPNG)
+	{
+		return getVideoCodecInfo(PNG);
+	}
+	if(codec == MoxMxf::VideoDescriptor::VideoCodecOpenEXR)
+	{
+		return getVideoCodecInfo(OPENEXR);
 	}
 	else if(codec == MoxMxf::VideoDescriptor::VideoCodecMPEG2)
 	{
@@ -397,6 +389,61 @@ AudioCodecListStorage::~AudioCodecListStorage()
 	{
 		delete i->second;
 	}
+}
+
+
+SampleType
+AudioCodecInfo::compressedType(SampleType sampleType) const
+{
+	// round up
+	switch(sampleType)
+	{
+		case MoxFiles::UNSIGNED8:
+			if( canCompressType(MoxFiles::UNSIGNED8) )
+				return MoxFiles::UNSIGNED8;
+		
+		case MoxFiles::SIGNED16:
+			if( canCompressType(MoxFiles::SIGNED16) )
+				return MoxFiles::SIGNED16;
+		
+		case MoxFiles::SIGNED24:
+			if( canCompressType(MoxFiles::SIGNED24) )
+				return MoxFiles::SIGNED24;
+		
+		case MoxFiles::SIGNED32:
+			if( canCompressType(MoxFiles::SIGNED32) )
+				return MoxFiles::SIGNED32;
+		
+		case MoxFiles::AFLOAT:
+			if( canCompressType(MoxFiles::AFLOAT) )
+				return MoxFiles::AFLOAT;
+	}
+	
+	// no dice, round down
+	switch(sampleType)
+	{
+		case MoxFiles::AFLOAT:
+			if( canCompressType(MoxFiles::AFLOAT) )
+				return MoxFiles::AFLOAT;
+				
+		case MoxFiles::SIGNED32:
+			if( canCompressType(MoxFiles::SIGNED32) )
+				return MoxFiles::SIGNED32;
+				
+		case MoxFiles::SIGNED24:
+			if( canCompressType(MoxFiles::SIGNED24) )
+				return MoxFiles::SIGNED24;
+				
+		case MoxFiles::SIGNED16:
+			if( canCompressType(MoxFiles::SIGNED16) )
+				return MoxFiles::SIGNED16;
+				
+		case MoxFiles::UNSIGNED8:
+			if( canCompressType(MoxFiles::UNSIGNED8) )
+				return MoxFiles::UNSIGNED8;
+	}
+	
+	throw MoxMxf::LogicExc("Unable to find a compressed type");
 }
 
 

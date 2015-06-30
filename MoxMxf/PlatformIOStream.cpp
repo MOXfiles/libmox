@@ -293,12 +293,13 @@ PlatformIOStream::PlatformIOStream(const uint16_t *filepath, Cababilities abilit
 	
 	if(abilities == ReadWrite && file_exists)
 	{
+		// try deleting, may not be able to (may not be a problem)
 		result = FSDeleteObject(&fsRef);
 		
-		if(result != noErr)
-			throw IoExc("Could not delete old file.");
-		
-		file_exists = false;
+		if(result == noErr)
+		{
+			file_exists = false;
+		}
 	}
 	
 	if(!file_exists)

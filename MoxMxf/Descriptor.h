@@ -79,6 +79,8 @@ namespace MoxMxf
 			VideoCodecUncompressedCDCI,
 			VideoCodecUncompressedRGB,
 			VideoCodecMPEG2,
+			VideoCodecPNG,
+			VideoCodecOpenEXR,
 			VideoCodecUnknown
 		};
 		
@@ -106,6 +108,17 @@ namespace MoxMxf
 		Int32 getDisplayXOffset() const { return _display_x_offset; }
 		Int32 getDisplayYOffset() const { return _display_y_offset; }
 		
+		void setStoredWidth(UInt32 val) { _stored_width = val; }
+		void setStoredHeight(UInt32 val) { _stored_height = val; }
+		void setSampledWidth(UInt32 val) { _sampled_width = val; }
+		void setSampledHeight(UInt32 val) { _sampled_height = val; }
+		void setSampledXOffset(Int32 val) { _sampled_x_offset = val; }
+		void setSampledYOffset(Int32 val) { _sampled_y_offset = val; }
+		void setDisplayWidth(UInt32 val) { _display_width = val; }
+		void setDisplayHeight(UInt32 val) { _display_height = val; }
+		void setDisplayXOffset(Int32 val) { _display_x_offset = val; }
+		void setDisplayYOffset(Int32 val) { _display_y_offset = val; }
+		
 		UInt32 getImageAlignmentOffset() const { return _image_alignment_offset; }
 		UInt32 getImageStartOffset() const { return _image_start_offset; }
 		UInt32 getImageEndOffset() const { return _image_end_offset; }
@@ -126,6 +139,7 @@ namespace MoxMxf
 		void setCaputeGamma(CaptureGamma gamma);
 		
 	  protected:
+		const mxflib::UL & getPictureEssenceCoding() const { return _picture_essence_coding; }
 		void setPictureEssenceCoding(const mxflib::UL &ul) { _picture_essence_coding = ul; }
 	  
 		virtual const mxflib::UL & getDescriptorUL() const = 0;
@@ -203,7 +217,7 @@ namespace MoxMxf
 	{
 	  public:
 		RGBADescriptor(mxflib::MDObjectPtr descriptor);
-		RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height);
+		RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height, VideoCodec codec);
 		RGBADescriptor(const RGBADescriptor &other);
 		virtual ~RGBADescriptor() {}
 		
@@ -212,7 +226,7 @@ namespace MoxMxf
 		virtual UInt8 getGCItemType() const { return 0x15; } // SMPTE 384M-2005 7.1 (0x15 == "GC Picture")
 		virtual UInt8 getGCElementType() const { return 0x02; }; // frame-wrapped
 		
-		virtual VideoCodec getVideoCodec() const { return VideoCodecUncompressedRGB; }
+		virtual VideoCodec getVideoCodec() const;
 		
 		// see SMPTE 377M E.2.46 (page 99)
 		typedef struct RGBALayoutItem
