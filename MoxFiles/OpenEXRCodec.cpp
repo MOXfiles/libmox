@@ -131,7 +131,7 @@ OpenEXRCodec::OpenEXRCodec(const MoxMxf::VideoDescriptor &descriptor, Header &he
 	{
 		const MoxMxf::RGBADescriptor::RGBALayoutItem &item = *i;
 		
-		std::string name(item.code, 1);
+		std::string name(1, item.code);
 		
 		channels.insert(name.c_str(), Channel(PixelTypeFromBits(item.depth)));
 	}
