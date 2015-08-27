@@ -17,7 +17,9 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 	_header(header),
 	_mxf_file(NULL),
 	_video_frames(0),
-	_audio_frames(0)
+	_stored_video_frames(0),
+	_audio_frames(0),
+	_finalized(false)
 {
 	ChannelList &video_channels = _header.channels();
 
@@ -183,39 +185,9 @@ OutputFile::OutputFile(IOStream &outfile, const Header &header) :
 
 OutputFile::~OutputFile()
 {
-	if(_video_codec_units.size() > 0 && _audio_codec_units.size() > 0)
-	{
-		if(_video_frames > _audio_frames)
-		{
-			// just waiting for a little more audio
-			assert(_video_frames == _audio_frames + 1);
-			
-			for(std::list<AudioCodecUnit>::iterator i = _audio_codec_units.begin(); i != _audio_codec_units.end(); ++i)
-			{
-				AudioCodecUnit &unit = *i;
-				
-				if(unit.audioBuffer)
-				{
-					unit.audioBuffer->fillRemaining();
-				
-					unit.codec->compress(*unit.audioBuffer);
-					
-					DataChunkPtr data = unit.codec->getNextData();
-					
-					if(data)
-					{
-						_mxf_file->PushEssence(unit.trackNumber, data);
-					}
-					else
-						assert(false); // expect to always get data right now
-					
-					unit.audioBuffer = NULL;
-				}
-				else
-					assert(false); // we're hoping there's just a little left over audio
-			}
-		}
-	}
+	assert(_finalized == true);
+
+	finalize();
 
 	delete _mxf_file;
 	
@@ -282,15 +254,20 @@ OutputFile::pushFrame(const FrameBuffer &frame)
 		
 		unit.codec->compress(frame_to_use);
 		
+		
 		DataChunkPtr data = unit.codec->getNextData();
 		
-		if(!data)
-			throw MoxMxf::NoImplExc("Not handling buffered data.");
-		
-		_mxf_file->PushEssence(unit.trackNumber, data);
-		
-		_video_frames++;
+		while(data)
+		{
+			_mxf_file->PushEssence(unit.trackNumber, data);
+			
+			_stored_video_frames++;
+			
+			data = unit.codec->getNextData();
+		}
 	}
+	
+	_video_frames++;
 }
 
 
@@ -378,18 +355,101 @@ OutputFile::pushAudio(const AudioBuffer &audio)
 				
 				DataChunkPtr data = unit.codec->getNextData();
 				
-				if(data)
+				while(data)
 				{
 					_mxf_file->PushEssence(unit.trackNumber, data);
+					
+					data = unit.codec->getNextData();
 				}
-				else
-					assert(false); // expect to always get data right now
 				
 				unit.audioBuffer = NULL;
 			}
 			
 			_audio_frames++;
 		}
+	}
+}
+
+
+void
+OutputFile::finalize()
+{
+	if(!_finalized)
+	{
+		for(std::list<VideoCodecUnit>::iterator i = _video_codec_units.begin(); i != _video_codec_units.end(); ++i)
+		{
+			VideoCodecUnit &unit = *i;
+			
+			while(_stored_video_frames < (_video_frames * _video_codec_units.size()))
+			{
+				unit.codec->end_of_stream();
+				
+				DataChunkPtr data = unit.codec->getNextData();
+				
+				while(data)
+				{
+					_mxf_file->PushEssence(unit.trackNumber, data);
+					
+					_stored_video_frames++;
+					
+					data = unit.codec->getNextData();
+				}
+			}
+		}
+		
+		for(std::list<AudioCodecUnit>::iterator i = _audio_codec_units.begin(); i != _audio_codec_units.end(); ++i)
+		{
+			AudioCodecUnit &unit = *i;
+			
+			unit.codec->end_of_stream();
+			
+			DataChunkPtr data = unit.codec->getNextData();
+			
+			while(data)
+			{
+				_mxf_file->PushEssence(unit.trackNumber, data);
+				
+				data = unit.codec->getNextData();
+			}
+		}
+	
+		if(_video_codec_units.size() > 0 && _audio_codec_units.size() > 0)
+		{
+			if(_video_frames > _audio_frames)
+			{
+				// just waiting for a little more audio
+				assert(_video_frames == _audio_frames + 1);
+				
+				for(std::list<AudioCodecUnit>::iterator i = _audio_codec_units.begin(); i != _audio_codec_units.end(); ++i)
+				{
+					AudioCodecUnit &unit = *i;
+					
+					if(unit.audioBuffer)
+					{
+						unit.audioBuffer->fillRemaining();
+					
+						unit.codec->compress(*unit.audioBuffer);
+						
+						DataChunkPtr data = unit.codec->getNextData();
+						
+						if(data)
+						{
+							_mxf_file->PushEssence(unit.trackNumber, data);
+						}
+						else
+							assert(false); // expect to always get data right now
+						
+						unit.audioBuffer = NULL;
+					}
+					else
+						assert(false); // we're hoping there's just a little left over audio
+				}
+			}
+		}
+		
+		_mxf_file->finalize();
+		
+		_finalized = true;
 	}
 }
 

@@ -15,7 +15,7 @@ namespace MoxFiles
 
 MPEGCodec::MPEGCodec(const Header &header, const ChannelList &channels) :
 	VideoCodec(header, channels),
-	_descriptor(header.frameRate(), header.width(), header.height(), 1, 1)
+	_descriptor(header.frameRate(), header.width(), header.height())
 {
 	throw MoxMxf::NoImplExc("Implement!");
 }

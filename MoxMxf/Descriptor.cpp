@@ -321,14 +321,21 @@ CDCIDescriptor::CDCIDescriptor(mxflib::MDObjectPtr descriptor) :
 static const UInt8 MXF_GC_Uncompressed_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x00, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x05, 0x7f, 0x01 };
 static const mxflib::UL MXF_GC_Uncompressed_FrameWrapped_UL(MXF_GC_Uncompressed_FrameWrapped_Data);
 
+static const UInt8 GC_Dirac_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x17, 0x01, 0x00 };
+static const mxflib::UL GC_Dirac_FrameWrapped_UL(GC_Dirac_FrameWrapped_Data);
+
 static const UInt8 Uncompressed_422_YCbCr_8bit_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0a, 0x04, 0x01, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02 };
 static const mxflib::UL Uncompressed_422_YCbCr_8bit_Picture_Coding_UL(Uncompressed_422_YCbCr_8bit_Picture_Coding_Data);
 
-CDCIDescriptor::CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height, UInt32 horizontal_subsampling, UInt32 vertical_subsampling) :
+static const UInt8 Dirac_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x73, 0x01, 0x00, 0x00 };
+static const mxflib::UL Dirac_Picture_Coding_UL(Dirac_Picture_Coding_Data);
+
+
+CDCIDescriptor::CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height, VideoCodec codec) :
 	VideoDescriptor(sample_rate, width, height),
 	_component_depth(8),
-	_horizontal_subsampling(horizontal_subsampling),
-	_vertical_subsampling(vertical_subsampling),
+	_horizontal_subsampling(1),
+	_vertical_subsampling(1),
 	_color_siting(ColorSiting_CoSiting),
 	_reversed_byte_order(false),
 	_padding_bits(0),
@@ -337,10 +344,16 @@ CDCIDescriptor::CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height
 	_white_ref_level(255),
 	_color_range(255)
 {
-	// this should get over-written if MPEG descriptor used
-	setEssenceContainerLabel(MXF_GC_Uncompressed_FrameWrapped_Data);
-	
-	setPictureEssenceCoding(Uncompressed_422_YCbCr_8bit_Picture_Coding_UL);
+	if(codec == VideoCodecDirac)
+	{
+		setEssenceContainerLabel(GC_Dirac_FrameWrapped_UL);
+		setPictureEssenceCoding(Dirac_Picture_Coding_UL);
+	}
+	else if(codec == VideoCodecUncompressedCDCI)
+	{
+		setEssenceContainerLabel(MXF_GC_Uncompressed_FrameWrapped_Data);
+		setPictureEssenceCoding(Uncompressed_422_YCbCr_8bit_Picture_Coding_Data);
+	}
 }
 
 CDCIDescriptor::CDCIDescriptor(const CDCIDescriptor &other) :
@@ -376,6 +389,27 @@ CDCIDescriptor::makeDescriptorObj() const
 	
 	return descriptor;
 }
+
+
+VideoDescriptor::VideoCodec
+CDCIDescriptor::getVideoCodec() const
+{
+	const mxflib::UL &coding = getPictureEssenceCoding();
+	
+	if(coding.Matches(Dirac_Picture_Coding_UL))
+	{
+		return VideoCodecDirac;
+	}
+	else if(coding.Matches(Uncompressed_422_YCbCr_8bit_Picture_Coding_Data))
+	{
+		return VideoCodecUncompressedCDCI;
+	}
+	else
+		assert(false);
+	
+	return VideoCodecUnknown;
+}
+
 
 RGBADescriptor::RGBADescriptor(mxflib::MDObjectPtr descriptor) :
 	VideoDescriptor(descriptor)
@@ -429,10 +463,10 @@ static const mxflib::UL GC_PNG_FrameWrapped_UL(GC_PNG_FrameWrapped_Data);
 static const UInt8 GC_OpenEXR_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x16, 0x01, 0x00 };
 static const mxflib::UL GC_OpenEXR_FrameWrapped_UL(GC_OpenEXR_FrameWrapped_Data);
 
-static const UInt8 PNG_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x03, 0x01, 0x00, 0x00, 0x00 };
+static const UInt8 PNG_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x03, 0x01, 0x00 };
 static const mxflib::UL PNG_Picture_Coding_UL(PNG_Picture_Coding_Data);
 
-static const UInt8 OpenEXR_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x04, 0x01, 0x00, 0x00, 0x00 };
+static const UInt8 OpenEXR_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x04, 0x01, 0x00 };
 static const mxflib::UL OpenEXR_Picture_Coding_UL(OpenEXR_Picture_Coding_Data);
 
 
@@ -550,6 +584,10 @@ RGBADescriptor::getVideoCodec() const
 	{
 		return VideoCodecOpenEXR;
 	}
+	else if(coding.Matches(Dirac_Picture_Coding_UL))
+	{
+		return VideoCodecDirac;
+	}
 	else
 		assert(false);
 	
@@ -576,8 +614,8 @@ MPEGDescriptor::MPEGDescriptor(mxflib::MDObjectPtr descriptor) :
 static const UInt8 MPEG2_422P_HL_LongGOP_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x03, 0x04, 0x01, 0x02, 0x02, 0x01, 0x04, 0x03, 0x00 };
 static const mxflib::UL MPEG2_422P_HL_LongGOP_UL(MPEG2_422P_HL_LongGOP_Data);
 
-MPEGDescriptor::MPEGDescriptor(Rational sample_rate, UInt32 width, UInt32 height, UInt32 horizontal_subsampling, UInt32 vertical_subsampling) :
-	CDCIDescriptor(sample_rate, width, height, horizontal_subsampling, vertical_subsampling),
+MPEGDescriptor::MPEGDescriptor(Rational sample_rate, UInt32 width, UInt32 height) :
+	CDCIDescriptor(sample_rate, width, height, VideoCodecMPEG2),
 	_single_sequence(false),
 	_constant_b_picture(false),
 	_coded_content_type(CodedType_Unknown),

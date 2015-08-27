@@ -12,6 +12,7 @@
 #include <MoxFiles/UncompressedVideoCodec.h>
 #include <MoxFiles/PNGCodec.h>
 #include <MoxFiles/OpenEXRCodec.h>
+#include <MoxFiles/DiracCodec.h>
 #include <MoxFiles/MPEGCodec.h>
 
 #include <MoxFiles/UncompressedPCMCodec.h>
@@ -289,6 +290,7 @@ getVideoCodecInfo(VideoCompression videoCompression)
 		codecList[UNCOMPRESSED] = new UncompressedVideoCodecInfo;
 		codecList[PNG] = new PNGCodecInfo;
 		codecList[OPENEXR] = new OpenEXRCodecInfo;
+		codecList[DIRAC] = new DiracCodecInfo;
 		codecList[MPEG] = new MPEGCodecInfo;
 	}
 	
@@ -313,6 +315,10 @@ getVideoCodecInfo(MoxMxf::VideoDescriptor::VideoCodec codec)
 	if(codec == MoxMxf::VideoDescriptor::VideoCodecOpenEXR)
 	{
 		return getVideoCodecInfo(OPENEXR);
+	}
+	if(codec == MoxMxf::VideoDescriptor::VideoCodecDirac)
+	{
+		return getVideoCodecInfo(DIRAC);
 	}
 	else if(codec == MoxMxf::VideoDescriptor::VideoCodecMPEG2)
 	{

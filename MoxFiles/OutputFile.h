@@ -32,10 +32,14 @@ namespace MoxFiles
 		void pushFrame(const FrameBuffer &frame);
 		
 		void pushAudio(const AudioBuffer &audio);
+		
+		void finalize();
 	  
 	  private:
 		Header _header;
 		MoxMxf::OutputFile *_mxf_file;
+		
+		bool _finalized;
 		
 		typedef struct VideoCodecUnit
 		{
@@ -50,6 +54,7 @@ namespace MoxFiles
 		std::list<VideoCodecUnit> _video_codec_units;
 		
 		int _video_frames;
+		int _stored_video_frames;
 		
 		
 		typedef struct AudioCodecUnit

@@ -17,6 +17,7 @@ namespace MoxFiles
 		UNCOMPRESSED  = 0,	// no compression
 		PNG,
 		OPENEXR,
+		DIRAC,
 		MPEG,
 		
 

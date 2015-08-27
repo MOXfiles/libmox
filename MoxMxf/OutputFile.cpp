@@ -21,6 +21,7 @@ using namespace mxflib;  // because of _UL constants
 OutputFile::OutputFile(IOStream &outfile, const EssenceList &essence, Rational EditRate, Position startTimeCode) :
 	_essence(essence),
 	_header_written(false),
+	_finalized(false),
 	_duration(0)
 {
 	InitializeDict();
@@ -223,43 +224,9 @@ OutputFile::OutputFile(IOStream &outfile, const EssenceList &essence, Rational E
 
 OutputFile::~OutputFile()
 {
-	if(_header_written)
-	{
-		_writer->WriteBody();
-		
-		assert(_writer->BodyDone());
+	assert(_finalized == true);
 
-		_writer->EndPartition();
-		
-		
-		for(std::deque<mxflib::ComponentPtr>::iterator i = _duration_objs.begin(); i != _duration_objs.end(); ++i)
-		{
-			mxflib::ComponentPtr source_clip = *i;
-		
-			source_clip->SetDuration(_duration);
-		}
-		
-		_metadata->SetTime();
-		
-		_metadata->UpdateGenerations(_identification);
-		
-		
-		mxflib::PartitionPtr footer_partition = new mxflib::Partition(FooterPartition_UL);
-		
-		initPartition(footer_partition, 0, _indexSID);
-			
-		footer_partition->AddMetadata(_metadata);
-		
-		_writer->SetPartition(footer_partition);
-		
-		_writer->WriteFooter(true);
-		
-		_writer->EndPartition();
-	}
-	else
-		assert(false); // no frames were written apparently
-
-	_file->Close();
+	finalize();
 	
 	UnregisterIOStream(_fileH);
 }
@@ -356,6 +323,53 @@ OutputFile::PushEssence(TrackNum trackNumber, mxflib::DataChunkPtr data, int Key
 	}
 }
 
+
+void
+OutputFile::finalize()
+{
+	if(_finalized == false)
+	{
+		if(_header_written)
+		{
+			_writer->WriteBody();
+			
+			assert(_writer->BodyDone());
+
+			_writer->EndPartition();
+			
+			
+			for(std::deque<mxflib::ComponentPtr>::iterator i = _duration_objs.begin(); i != _duration_objs.end(); ++i)
+			{
+				mxflib::ComponentPtr source_clip = *i;
+			
+				source_clip->SetDuration(_duration);
+			}
+			
+			_metadata->SetTime();
+			
+			_metadata->UpdateGenerations(_identification);
+			
+			
+			mxflib::PartitionPtr footer_partition = new mxflib::Partition(FooterPartition_UL);
+			
+			initPartition(footer_partition, 0, _indexSID);
+				
+			footer_partition->AddMetadata(_metadata);
+			
+			_writer->SetPartition(footer_partition);
+			
+			_writer->WriteFooter(true);
+			
+			_writer->EndPartition();
+		}
+		else
+			assert(false); // no frames were written apparently
+
+		_file->Close();
+	
+		_finalized = true;
+	}
+}
 
 void
 OutputFile::initPartition(mxflib::PartitionPtr partition, SID bodySID, SID indexSID)

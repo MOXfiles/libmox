@@ -297,37 +297,71 @@ InputFile::~InputFile()
 void
 InputFile::getFrame(int frameNumber, FrameBuffer &frameBuffer)
 {
-	MoxMxf::FramePtr mxf_frame = _mxf_file.getFrame(frameNumber, _bodySID, _indexSID);
+	bool got_frame = false;
 	
-	if(!mxf_frame)
-		throw MoxMxf::NullExc("NULL frame");
+	int frameToRequest = frameNumber;
 	
-	MoxMxf::Frame::FrameParts &frameParts = mxf_frame->getFrameParts();
-	
-	for(std::list<VideoCodecUnit>::iterator u = _video_codec_units.begin(); u != _video_codec_units.end(); ++u)
+	while(!got_frame)
 	{
-		VideoCodecUnit &unit = *u;
-		
-		if(frameParts.find(unit.trackNumber) != frameParts.end())
+		if(frameToRequest < _header.duration())
 		{
-			MoxMxf::FramePartPtr part = frameParts[unit.trackNumber];
+			MoxMxf::FramePtr mxf_frame = _mxf_file.getFrame(frameToRequest, _bodySID, _indexSID);
 			
-			if(!part)
-				throw MoxMxf::NullExc("Null part?!?");
+			if(!mxf_frame)
+				throw MoxMxf::NullExc("NULL frame");
 			
-			mxflib::DataChunk &data = part->getData();
+			MoxMxf::Frame::FrameParts &frameParts = mxf_frame->getFrameParts();
 			
-			unit.codec->decompress(data);
+			for(std::list<VideoCodecUnit>::iterator u = _video_codec_units.begin(); u != _video_codec_units.end(); ++u)
+			{
+				VideoCodecUnit &unit = *u;
+				
+				if(frameParts.find(unit.trackNumber) != frameParts.end())
+				{
+					MoxMxf::FramePartPtr part = frameParts[unit.trackNumber];
+					
+					if(!part)
+						throw MoxMxf::NullExc("Null part?!?");
+					
+					mxflib::DataChunk &data = part->getData();
+					
+					unit.codec->decompress(data);
+					
+					FrameBufferPtr decompressed_frame = unit.codec->getNextFrame();
+					
+					if(decompressed_frame)
+					{
+						frameBuffer.copyFromFrame(*decompressed_frame);
+						
+						got_frame = true;
+					}
+				}
+				else
+					assert(false);
+			}
 			
-			FrameBufferPtr decompressed_frame = unit.codec->getNextFrame();
-			
-			if(!decompressed_frame)
-				throw MoxMxf::NullExc("Not handling sparce frames");
-			
-			frameBuffer.copyFromFrame(*decompressed_frame);
+			frameToRequest++;
 		}
 		else
-			assert(false);
+		{
+			for(std::list<VideoCodecUnit>::iterator u = _video_codec_units.begin(); u != _video_codec_units.end(); ++u)
+			{
+				VideoCodecUnit &unit = *u;
+				
+				unit.codec->end_of_stream();
+				
+				FrameBufferPtr decompressed_frame = unit.codec->getNextFrame();
+				
+				if(decompressed_frame)
+				{
+					frameBuffer.copyFromFrame(*decompressed_frame);
+					
+					got_frame = true;
+				}
+				else
+					throw MoxMxf::InputExc("Can't get requested frame");
+			}
+		}
 	}
 }
 

@@ -51,6 +51,8 @@ namespace MoxFiles
 		
 		virtual void decompress(const DataChunk &data) = 0;
 		virtual FrameBufferPtr getNextFrame();
+		
+		virtual void end_of_stream() {}  // i.e. no more pixels/data
 				
 	  protected:		
 		virtual void storeData(DataChunkPtr dat);
@@ -116,6 +118,8 @@ namespace MoxFiles
 		virtual UInt64 samplesInFrame(size_t frame_size) = 0;
 		virtual void decompress(const DataChunk &data) = 0;
 		virtual AudioBufferPtr getNextBuffer();
+		
+		virtual void end_of_stream() {}
 		
 	  protected:		
 		virtual void storeData(DataChunkPtr dat);

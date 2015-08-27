@@ -29,6 +29,8 @@ namespace MoxMxf
 		~OutputFile();
 		
 		void PushEssence(TrackNum trackNumber, mxflib::DataChunkPtr data, int KeyOffset=0, int TemporalOffset=0, int Flags=-1);
+		
+		void finalize();
 
 	  public:
 		static inline TrackNum TrackNumber(UInt8 itemType, UInt8 count, UInt8 elementType, UInt8 number)
@@ -52,6 +54,7 @@ namespace MoxMxf
 		mxflib::MetadataPtr _metadata;
 		mxflib::MDObjectPtr _identification;
 		bool _header_written;
+		bool _finalized;
 		
 		Position _duration;
 		std::deque<mxflib::ComponentPtr> _duration_objs;

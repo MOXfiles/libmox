@@ -133,7 +133,18 @@ class FrameBuffer : public RefCount<FrameBuffer>
 	int height() const { return (_dataWindow.max.y - _dataWindow.min.y + 1); }
 	
 	size_t size() const { return _map.size(); }
+	
+	enum Coefficients
+	{
+		Rec601,
+		Rec601_FullRange,
+		Rec709,
+		Rec709_FullRange
+	};
 
+	Coefficients & coeffiecients() { return _coefficients; }
+	const Coefficients & coeffiecients() const { return _coefficients; }
+	
     //------------
     // Add a slice
     //------------
@@ -198,6 +209,11 @@ class FrameBuffer : public RefCount<FrameBuffer>
 	const Box2i					_dataWindow;
 	
 	std::list<DataChunkPtr>		_data;
+	
+	
+	bool isYCbCr() const;
+		
+	Coefficients				_coefficients;
 };
 
 typedef SmartPtr<FrameBuffer> FrameBufferPtr;

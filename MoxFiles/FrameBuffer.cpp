@@ -17,7 +17,9 @@
 
 #include <algorithm>
 
-using namespace std;
+using std::min;
+using std::max;
+using std::string;
 
 namespace MoxFiles
 {
@@ -47,7 +49,8 @@ Slice::Slice (PixelType t,
 
 
 FrameBuffer::FrameBuffer(const Box2i &dataWindow) :
-	_dataWindow(dataWindow)
+	_dataWindow(dataWindow),
+	_coefficients(Rec709)
 {
 	if( _dataWindow.isEmpty() )
 		throw MoxMxf::ArgExc("Invalid dimensions for FrameBuffer");
@@ -55,7 +58,8 @@ FrameBuffer::FrameBuffer(const Box2i &dataWindow) :
 
 
 FrameBuffer::FrameBuffer(int width, int height) :
-	_dataWindow(V2i(0, 0), V2i(width - 1, height - 1))
+	_dataWindow(V2i(0, 0), V2i(width - 1, height - 1)),
+	_coefficients(Rec709)
 {
 	if(width < 1 || height < 1)
 		throw MoxMxf::ArgExc("Invalid dimensions for FrameBuffer");
@@ -298,6 +302,7 @@ CopyTask::CopyTask(TaskGroup *group, const Slice &destination_slice, const Slice
 {
 
 }
+
 
 void
 CopyTask::execute()
@@ -566,6 +571,417 @@ copySlice(TaskGroup &taskGroup,
 	}
 }
 
+
+typedef struct RGBtoYCbCr_Coefficients
+{
+	double Yr;
+	double Yg;
+	double Yb;
+	double Cbr;
+	double Cbg;
+	double Cbb;
+	double Crr;
+	double Crg;
+	double Crb;
+	int Yadd; // 8-bit values
+	int Cadd;
+
+	RGBtoYCbCr_Coefficients(double _Yr, double _Yg, double _Yb,
+							double _Cbr, double _Cbg, double _Cbb,
+							double _Crr, double _Crg, double _Crb,
+							int _Yadd, int _Cadd) :
+								Yr(_Yr), Yg(_Yg), Yb(_Yb),
+								Cbr(_Cbr), Cbg(_Cbg), Cbb(_Cbb),
+								Crr(_Crr), Crg(_Crg), Crb(_Crb),
+								Yadd(_Yadd), Cadd(_Cadd) {}
+} RGBtoYCbCr_Coefficients;
+
+
+class RGBtoYCbCrTask : public Task
+{
+  public:
+	RGBtoYCbCrTask(TaskGroup *group,
+				const Slice &destination_Y, const Slice &destination_Cb, const Slice &destination_Cr,
+				const Slice &source_R, const Slice &source_G, const Slice &source_B,
+				const Box2i &dw, const RGBtoYCbCr_Coefficients &coefficients, int y);
+	virtual ~RGBtoYCbCrTask() {}
+
+	virtual void execute();
+
+  private:
+  
+	template <typename T>
+	void CopyRow();
+	
+	template <typename T>
+	inline T Clip(const float &val);
+	
+  private:
+	const Slice &_destination_Y;
+	const Slice &_destination_Cb;
+	const Slice &_destination_Cr;
+	const Slice &_source_R;
+	const Slice &_source_G;
+	const Slice &_source_B;
+	const Box2i &_dw;
+	const RGBtoYCbCr_Coefficients &_coefficients;
+	const int _y;
+};
+
+
+RGBtoYCbCrTask::RGBtoYCbCrTask(TaskGroup *group,
+				const Slice &destination_Y, const Slice &destination_Cb, const Slice &destination_Cr,
+				const Slice &source_R, const Slice &source_G, const Slice &source_B,
+				const Box2i &dw, const RGBtoYCbCr_Coefficients &coefficients, int y) :
+	Task(group),
+	_destination_Y(destination_Y),
+	_destination_Cb(destination_Cb),
+	_destination_Cr(destination_Cr),
+	_source_R(source_R),
+	_source_G(source_G),
+	_source_B(source_B),
+	_dw(dw),
+	_coefficients(coefficients),
+	_y(y)
+{
+
+}
+
+
+void
+RGBtoYCbCrTask::execute()
+{
+	switch(_destination_Y.type)
+	{
+		case UINT8:	
+			CopyRow<unsigned char>();
+		break;
+		
+		case UINT10:
+			CopyRow<UInt10_t>();
+		break;
+		
+		case UINT12:
+			CopyRow<UInt16_t>();
+		break;
+		
+		case UINT16:
+			CopyRow<UInt16_t>();
+		break;
+		
+		case UINT16A:
+			CopyRow<UInt16A_t>();
+		break;
+		
+		case UINT32:
+			CopyRow<unsigned int>();
+		break;
+		
+		case HALF:
+			CopyRow<half>();
+		break;
+
+		case FLOAT:
+			CopyRow<float>();
+		break;
+	}
+}
+
+
+template <typename T>
+void
+RGBtoYCbCrTask::CopyRow()
+{
+	char *Y_origin = _destination_Y.base + (_y * _destination_Y.yStride) + (_dw.min.x * _destination_Y.xStride);
+	char *Cb_origin = _destination_Cb.base + (_y * _destination_Cb.yStride) + (_dw.min.x * _destination_Cb.xStride);
+	char *Cr_origin = _destination_Cr.base + (_y * _destination_Cr.yStride) + (_dw.min.x * _destination_Cr.xStride);
+	
+	T *Y = (T *)Y_origin;
+	T *Cb = (T *)Cb_origin;
+	T *Cr = (T *)Cr_origin;
+	
+	const int Y_step = _destination_Y.xStride / sizeof(T);
+	const int Cb_step = _destination_Cb.xStride / sizeof(T);
+	const int Cr_step = _destination_Cr.xStride / sizeof(T);
+	
+	const char *R_origin = _source_R.base + (_y * _source_R.yStride) + (_dw.min.x * _source_R.xStride);
+	const char *G_origin = _source_G.base + (_y * _source_G.yStride) + (_dw.min.x * _source_G.xStride);
+	const char *B_origin = _source_B.base + (_y * _source_B.yStride) + (_dw.min.x * _source_B.xStride);
+	
+	const T *R = (const T *)R_origin;
+	const T *G = (const T *)G_origin;
+	const T *B = (const T *)B_origin;
+	
+	const int R_step = _source_R.xStride / sizeof(T);
+	const int G_step = _source_G.xStride / sizeof(T);
+	const int B_step = _source_B.xStride / sizeof(T);
+	
+	const RGBtoYCbCr_Coefficients &co = _coefficients;
+	
+	const float round = (convertinfo<T>::isFloat() ? 0.f : 0.5f);
+	
+	const T Yadd = ((float)co.Yadd * (float)convertinfo<T>::max() / 255.f) + round;
+	const T Cadd = ((float)co.Cadd * (float)convertinfo<T>::max() / 255.f) + round;
+	
+	for(int x = _dw.min.x; x <= _dw.max.x; x++)
+	{
+		*Y = Clip<T>((float)Yadd + (co.Yr * (float)*R) + (co.Yg * (float)*G) + (co.Yb * (float)*B) + round);
+		*Cb = Clip<T>((float)Cadd + (co.Cbr * (float)*R) + (co.Cbg * (float)*G) + (co.Cbb * (float)*B) + round);
+		*Cr = Clip<T>((float)Cadd + (co.Crr * (float)*R) + (co.Crg * (float)*G) + (co.Crb * (float)*B) + round);
+		
+		Y += Y_step;
+		Cb += Cb_step;
+		Cr += Cr_step;
+		
+		R += R_step;
+		G += G_step;
+		B += B_step;
+	}
+}
+
+
+template <typename T>
+inline T
+RGBtoYCbCrTask::Clip(const float &val)
+{
+	return (convertinfo<T>::isFloat() ? val : max<float>(0, min<float>(val, convertinfo<T>::max())));
+}
+
+
+static void
+copySlices_RGBtoYCbCr(TaskGroup &taskGroup,
+					const Slice &destination_Y, const Slice &destination_Cb, const Slice &destination_Cr,
+					const Slice &source_R, const Slice &source_G, const Slice &source_B,
+					const Box2i &dw, const RGBtoYCbCr_Coefficients &coefficients)
+{
+	assert(destination_Y.xSampling == 1 && destination_Y.ySampling == 1);
+	assert(destination_Cb.xSampling == 1 && destination_Cb.ySampling == 1);
+	assert(destination_Cr.xSampling == 1 && destination_Cr.ySampling == 1);
+	assert(source_R.xSampling == 1 && source_R.ySampling == 1);
+	assert(source_G.xSampling == 1 && source_G.ySampling == 1);
+	assert(source_B.xSampling == 1 && source_B.ySampling == 1);
+	
+	assert(destination_Y.type == source_R.type);
+	assert(destination_Y.type == destination_Cb.type);
+	assert(destination_Y.type == destination_Cr.type);
+	assert(source_R.type == source_G.type);
+	assert(source_R.type == source_B.type);
+	
+	for(int y = dw.min.y; y <= dw.max.y; y++)
+	{
+		ThreadPool::addGlobalTask(new RGBtoYCbCrTask(&taskGroup,
+									destination_Y, destination_Cb, destination_Cr,
+									source_R, source_G, source_B,
+									dw, coefficients, y));
+	}
+}
+
+
+typedef struct YCbCrtoRGB_Coefficients
+{
+	double Ry;
+	double Rcb;
+	double Rcr;
+	double Gy;
+	double Gcb;
+	double Gcr;
+	double By;
+	double Bcb;
+	double Bcr;
+	int Ysub; // 8-bit values
+	int Csub;
+
+	YCbCrtoRGB_Coefficients(double _Ry, double _Rcb, double _Rcr,
+							double _Gy, double _Gcb, double _Gcr,
+							double _By, double _Bcb, double _Bcr,
+							int _Ysub, int _Csub) :
+								Ry(_Ry), Rcb(_Rcb), Rcr(_Rcr),
+								Gy(_Gy), Gcb(_Gcb), Gcr(_Gcr),
+								By(_By), Bcb(_Bcb), Bcr(_Bcr),
+								Ysub(_Ysub), Csub(_Csub) {}
+} YCbCrtoRGB_Coefficients;
+
+
+class YCbCrtoRGBTask : public Task
+{
+  public:
+	YCbCrtoRGBTask(TaskGroup *group,
+				const Slice &destination_R, const Slice &destination_G, const Slice &destination_B,
+				const Slice &source_Y, const Slice &source_Cb, const Slice &source_Cr,
+				const Box2i &dw, const YCbCrtoRGB_Coefficients &coefficients, int y);
+	virtual ~YCbCrtoRGBTask() {}
+
+	virtual void execute();
+
+  private:
+  
+	template <typename T>
+	void CopyRow();
+	
+	template <typename T>
+	inline T Clip(const float &val);
+	
+  private:
+	const Slice &_destination_R;
+	const Slice &_destination_G;
+	const Slice &_destination_B;
+	const Slice &_source_Y;
+	const Slice &_source_Cb;
+	const Slice &_source_Cr;
+	const Box2i &_dw;
+	const YCbCrtoRGB_Coefficients &_coefficients;
+	const int _y;
+};
+
+
+YCbCrtoRGBTask::YCbCrtoRGBTask(TaskGroup *group,
+				const Slice &destination_R, const Slice &destination_G, const Slice &destination_B,
+				const Slice &source_Y, const Slice &source_Cb, const Slice &source_Cr,
+				const Box2i &dw, const YCbCrtoRGB_Coefficients &coefficients, int y) :
+	Task(group),
+	_destination_R(destination_R),
+	_destination_G(destination_G),
+	_destination_B(destination_B),
+	_source_Y(source_Y),
+	_source_Cb(source_Cb),
+	_source_Cr(source_Cr),
+	_dw(dw),
+	_coefficients(coefficients),
+	_y(y)
+{
+
+}
+
+
+void
+YCbCrtoRGBTask::execute()
+{
+	switch(_destination_R.type)
+	{
+		case UINT8:	
+			CopyRow<unsigned char>();
+		break;
+		
+		case UINT10:
+			CopyRow<UInt10_t>();
+		break;
+		
+		case UINT12:
+			CopyRow<UInt16_t>();
+		break;
+		
+		case UINT16:
+			CopyRow<UInt16_t>();
+		break;
+		
+		case UINT16A:
+			CopyRow<UInt16A_t>();
+		break;
+		
+		case UINT32:
+			CopyRow<unsigned int>();
+		break;
+		
+		case HALF:
+			CopyRow<half>();
+		break;
+
+		case FLOAT:
+			CopyRow<float>();
+		break;
+	}
+}
+
+
+template <typename T>
+void
+YCbCrtoRGBTask::CopyRow()
+{
+	char *R_origin = _destination_R.base + (_y * _destination_R.yStride) + (_dw.min.x * _destination_R.xStride);
+	char *G_origin = _destination_G.base + (_y * _destination_G.yStride) + (_dw.min.x * _destination_G.xStride);
+	char *B_origin = _destination_B.base + (_y * _destination_B.yStride) + (_dw.min.x * _destination_B.xStride);
+	
+	T *R = (T *)R_origin;
+	T *G = (T *)G_origin;
+	T *B = (T *)B_origin;
+	
+	const int R_step = _destination_R.xStride / sizeof(T);
+	const int G_step = _destination_G.xStride / sizeof(T);
+	const int B_step = _destination_B.xStride / sizeof(T);
+	
+	const char *Y_origin = _source_Y.base + (_y * _source_Y.yStride) + (_dw.min.x * _source_Y.xStride);
+	const char *Cb_origin = _source_Cb.base + (_y * _source_Cb.yStride) + (_dw.min.x * _source_Cb.xStride);
+	const char *Cr_origin = _source_Cr.base + (_y * _source_Cr.yStride) + (_dw.min.x * _source_Cr.xStride);
+	
+	const T *Y = (const T *)Y_origin;
+	const T *Cb = (const T *)Cb_origin;
+	const T *Cr = (const T *)Cr_origin;
+	
+	const int Y_step = _source_Y.xStride / sizeof(T);
+	const int Cb_step = _source_Cb.xStride / sizeof(T);
+	const int Cr_step = _source_Cr.xStride / sizeof(T);
+	
+	const YCbCrtoRGB_Coefficients &co = _coefficients;
+	
+	const float round = (convertinfo<T>::isFloat() ? 0.f : 0.5f);
+	
+	const T Ysub = ((float)co.Ysub * (float)convertinfo<T>::max() / 255.f) + round;
+	const T Csub = ((float)co.Csub * (float)convertinfo<T>::max() / 255.f) + round;
+	
+	for(int x = _dw.min.x; x <= _dw.max.x; x++)
+	{
+		*R = Clip<T>( (co.Ry * ((float)*Y - (float)Ysub)) + (co.Rcb * ((float)*Cb - (float)Csub)) + (co.Rcr * ((float)*Cr - (float)Csub)) + round);
+		*G = Clip<T>( (co.Gy * ((float)*Y - (float)Ysub)) + (co.Gcb * ((float)*Cb - (float)Csub)) + (co.Gcr * ((float)*Cr - (float)Csub)) + round);
+		*B = Clip<T>( (co.By * ((float)*Y - (float)Ysub)) + (co.Bcb * ((float)*Cb - (float)Csub)) + (co.Bcr * ((float)*Cr - (float)Csub)) + round);
+		
+		R += R_step;
+		G += G_step;
+		B += B_step;
+		
+		Y += Y_step;
+		Cb += Cb_step;
+		Cr += Cr_step;
+	}
+}
+
+
+template <typename T>
+inline T
+YCbCrtoRGBTask::Clip(const float &val)
+{
+	return (convertinfo<T>::isFloat() ? val : max<float>(0, min<float>(val, convertinfo<T>::max())));
+}
+
+
+static void
+copySlices_YCbCrtoRGB(TaskGroup &taskGroup,
+					const Slice &destination_R, const Slice &destination_G, const Slice &destination_B,
+					const Slice &source_Y, const Slice &source_Cb, const Slice &source_Cr,
+					const Box2i &dw, const YCbCrtoRGB_Coefficients &coefficients)
+{
+	assert(destination_R.xSampling == 1 && destination_R.ySampling == 1);
+	assert(destination_G.xSampling == 1 && destination_G.ySampling == 1);
+	assert(destination_B.xSampling == 1 && destination_B.ySampling == 1);
+	assert(source_Y.xSampling == 1 && source_Y.ySampling == 1);
+	assert(source_Cb.xSampling == 1 && source_Cb.ySampling == 1);
+	assert(source_Cr.xSampling == 1 && source_Cr.ySampling == 1);
+	
+	assert(destination_R.type == source_Y.type);
+	assert(destination_R.type == destination_G.type);
+	assert(destination_R.type == destination_B.type);
+	assert(source_Y.type == source_Cb.type);
+	assert(source_Y.type == source_Cr.type);
+	
+	for(int y = dw.min.y; y <= dw.max.y; y++)
+	{
+		ThreadPool::addGlobalTask(new YCbCrtoRGBTask(&taskGroup,
+									destination_R, destination_G, destination_B,
+									source_Y, source_Cb, source_Cr,
+									dw, coefficients, y));
+	}
+}
+
+
 void
 FrameBuffer::copyFromFrame(const FrameBuffer &other, bool fillMissing)
 {
@@ -599,23 +1015,177 @@ FrameBuffer::copyFromFrame(const FrameBuffer &other, bool fillMissing)
 	{
 		TaskGroup taskGroup;
 		
-		for(ConstIterator i = begin(); i != end(); ++i)
+		if(this->isYCbCr() == other.isYCbCr())
 		{
-			const string &name = i.name();
-			
-			const Slice &slice = i.slice();
-			const Slice *other_slice = other.findSlice(name);
-			
-			if(other_slice)
+			if(this->isYCbCr() && this->_coefficients != other._coefficients)
 			{
-				// copy
-				copySlice(taskGroup, slice, *other_slice, copyBox);
+				assert(false); // not yet handling this
 			}
-			else if(fillMissing)
+			else
 			{
-				// fill
-				fillSlice(taskGroup, slice, copyBox);
+				for(ConstIterator i = begin(); i != end(); ++i)
+				{
+					const string &name = i.name();
+					
+					const Slice &slice = i.slice();
+					const Slice *other_slice = other.findSlice(name);
+					
+					if(other_slice)
+					{
+						// copy
+						copySlice(taskGroup, slice, *other_slice, copyBox);
+					}
+					else if(fillMissing)
+					{
+						// fill
+						fillSlice(taskGroup, slice, copyBox);
+					}
+				}
 			}
+		}
+		else
+		{
+			if(this->isYCbCr() && !other.isYCbCr())
+			{
+				// http://www.equasys.de/colorconversion.html
+				// http://www.martinreddy.net/gfx/faqs/colorconv.faq
+				
+				static const RGBtoYCbCr_Coefficients rec601(0.257, 0.504, 0.098,
+															-0.148, -0.291, 0.439,
+															0.439, -0.368, -0.071,
+															16, 128);
+
+				static const RGBtoYCbCr_Coefficients rec601_full(0.299, 0.587, 0.114,
+																-0.169, -0.331, 0.5,
+																0.5, -0.419, -0.081,
+																0, 128);
+															
+				static const RGBtoYCbCr_Coefficients rec709(0.183, 0.614, 0.062,
+															-0.101, -0.339, 0.439,
+															0.439, -0.399, -0.040,
+															16, 128);
+				
+				static const RGBtoYCbCr_Coefficients rec709_full(0.2215, 0.7154, 0.0721,
+																-0.1145, -0.3855, 0.5,
+																0.5, -0.4556, -0.0459,
+																0, 128);
+															
+				const RGBtoYCbCr_Coefficients &coefficients = (_coefficients == Rec601 ? rec601 :
+																_coefficients == Rec601_FullRange ? rec601_full :
+																_coefficients == Rec709 ? rec709 :
+																rec709_full);
+				
+				Slice *Y_slice = this->findSlice("Y");
+				Slice *Cb_slice = this->findSlice("Cb");
+				Slice *Cr_slice = this->findSlice("Cr");
+				
+				const Slice *R_slice = other.findSlice("R");
+				const Slice *G_slice = other.findSlice("G");
+				const Slice *B_slice = other.findSlice("B");
+				
+				if(Y_slice && Cb_slice && Cr_slice && R_slice && G_slice && B_slice)
+				{
+					copySlices_RGBtoYCbCr(taskGroup,
+											*Y_slice, *Cb_slice, *Cr_slice,
+											*R_slice, *G_slice, *B_slice,
+											copyBox, coefficients);
+				}
+				else
+					assert(false);
+				
+				
+				for(ConstIterator i = begin(); i != end(); ++i)
+				{
+					const string &name = i.name();
+					
+					if(name != "Y" && name != "Cb" && name != "Cr")
+					{
+						const Slice &slice = i.slice();
+						const Slice *other_slice = other.findSlice(name);
+						
+						if(other_slice)
+						{
+							// copy
+							copySlice(taskGroup, slice, *other_slice, copyBox);
+						}
+						else if(fillMissing)
+						{
+							// fill
+							fillSlice(taskGroup, slice, copyBox);
+						}
+					}
+				}
+			}
+			else if(!this->isYCbCr() && other.isYCbCr())
+			{
+				static const YCbCrtoRGB_Coefficients rec601(1.164, 0.0, 1.596,
+															1.164, -0.392, -0.813,
+															1.164, 2.017, 0.0,
+															16, 128);
+
+				static const YCbCrtoRGB_Coefficients rec601_full(1.0, 0.0, 1.4,
+																1.0, -0.343, -0.711,
+																1.0, 1.765, 0.0,
+																0, 128);
+															
+				static const YCbCrtoRGB_Coefficients rec709(1.164, 0.0, 1.793,
+															1.164, -0.213, -0.533,
+															1.164, 2.112, 0.0,
+															16, 128);
+				
+				static const YCbCrtoRGB_Coefficients rec709_full(1.0, 0.0, 1.5701,
+																1.0, -0.1870, -0.4664,
+																1.0, -1.8556, 0.0,
+																0, 128);
+																
+				const YCbCrtoRGB_Coefficients &coefficients = (_coefficients == Rec601 ? rec601 :
+																_coefficients == Rec601_FullRange ? rec601_full :
+																_coefficients == Rec709 ? rec709 :
+																rec709_full);
+																
+				Slice *R_slice = this->findSlice("R");
+				Slice *G_slice = this->findSlice("G");
+				Slice *B_slice = this->findSlice("B");
+				
+				const Slice *Y_slice = other.findSlice("Y");
+				const Slice *Cb_slice = other.findSlice("Cb");
+				const Slice *Cr_slice = other.findSlice("Cr");
+				
+				if(R_slice && G_slice && B_slice && Y_slice && Cb_slice && Cr_slice)
+				{
+					copySlices_YCbCrtoRGB(taskGroup,
+											*R_slice, *G_slice, *B_slice,
+											*Y_slice, *Cb_slice, *Cr_slice,
+											copyBox, coefficients);
+				}
+				else
+					assert(false);
+				
+				
+				for(ConstIterator i = begin(); i != end(); ++i)
+				{
+					const string &name = i.name();
+					
+					if(name != "R" && name != "G" && name != "B")
+					{
+						const Slice &slice = i.slice();
+						const Slice *other_slice = other.findSlice(name);
+						
+						if(other_slice)
+						{
+							// copy
+							copySlice(taskGroup, slice, *other_slice, copyBox);
+						}
+						else if(fillMissing)
+						{
+							// fill
+							fillSlice(taskGroup, slice, copyBox);
+						}
+					}
+				}
+			}
+			else
+				assert(false); // huh?
 		}
 	}
 }
@@ -773,6 +1343,12 @@ FrameBuffer::find (const string &name) const
     return find (name.c_str());
 }
 
+
+bool
+FrameBuffer::isYCbCr() const
+{
+	return (NULL != findSlice("Y") && NULL != findSlice("Cb") && NULL != findSlice("Cr"));
+}
 
 } // namespace
 

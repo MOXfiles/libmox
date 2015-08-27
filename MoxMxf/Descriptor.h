@@ -81,6 +81,7 @@ namespace MoxMxf
 			VideoCodecMPEG2,
 			VideoCodecPNG,
 			VideoCodecOpenEXR,
+			VideoCodecDirac,
 			VideoCodecUnknown
 		};
 		
@@ -176,7 +177,7 @@ namespace MoxMxf
 	{ // "Color-Difference Component Image Descriptor"
 	  public:
 		CDCIDescriptor(mxflib::MDObjectPtr descriptor);
-		CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height, UInt32 horizontal_subsampling, UInt32 vertical_subsampling);
+		CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height, VideoCodec codec);
 		CDCIDescriptor(const CDCIDescriptor &other);
 		virtual ~CDCIDescriptor() {}
 		
@@ -185,7 +186,7 @@ namespace MoxMxf
 		virtual UInt8 getGCItemType() const { return 0x15; } // SMPTE 384M-2005 7.1 (0x15 == "GC Picture")
 		virtual UInt8 getGCElementType() const { return 0x02; }; // frame-wrapped
 		
-		virtual VideoCodec getVideoCodec() const { return VideoCodecUncompressedCDCI; }
+		virtual VideoCodec getVideoCodec() const;
 		
 		enum {
 			ColorSiting_CoSiting = 0,
@@ -195,6 +196,29 @@ namespace MoxMxf
 			ColorSiting_Rec601 = 4,
 			ColorSiting_Unknown = 255
 		};
+		
+		UInt32 getComponentDepth() const { return _component_depth; }
+		UInt32 getHorizontalSubsampling() const { return _horizontal_subsampling; }
+		UInt32 getVerticalSubsampling() const { return _vertical_subsampling; }
+		UInt8 getColorSiting() const { return _color_siting; }
+		bool getReversedByteOrder() const { return _reversed_byte_order; }
+		Int16 getPaddingBits() const { return _padding_bits; }
+		UInt32 getAlphaSampleDepth() const { return _alpha_sample_depth; }
+		UInt32 getBlackRefLevel() const { return _black_ref_level; }
+		UInt32 getWhiteRefLevel() const { return _white_ref_level; }
+		UInt32 getColorRange() const { return _color_range; }
+		
+		void setComponentDepth(UInt32 val) { _component_depth = val; }
+		void setHorizontalSubsampling(UInt32 val) { _horizontal_subsampling = val; }
+		void setVerticalSubsampling(UInt32 val) { _vertical_subsampling = val; }
+		void setColorSiting(UInt8 val) { _color_siting = val; }
+		void setReversedByteOrder(bool val) { _reversed_byte_order = val; }
+		void setPaddingBits(Int16 val) { _padding_bits = val; }
+		void setAlphaSampleDepth(UInt32 val) { _alpha_sample_depth = val; }
+		void setBlackRefLevel(UInt32 val) { _black_ref_level = val; }
+		void setWhiteRefLevel(UInt32 val) { _white_ref_level = val; }
+		void setColorRange(UInt32 val) { _color_range = val; }
+		
 		
 	  protected:
 		virtual const mxflib::UL & getDescriptorUL() const { return mxflib::CDCIEssenceDescriptor_UL; }
@@ -273,7 +297,7 @@ namespace MoxMxf
 	{
 	  public:
 		MPEGDescriptor(mxflib::MDObjectPtr descriptor);
-		MPEGDescriptor(Rational sample_rate, UInt32 width, UInt32 height, UInt32 horizontal_subsampling, UInt32 vertical_subsampling);
+		MPEGDescriptor(Rational sample_rate, UInt32 width, UInt32 height);
 		MPEGDescriptor(const MPEGDescriptor &other);
 		virtual ~MPEGDescriptor() {}
 		

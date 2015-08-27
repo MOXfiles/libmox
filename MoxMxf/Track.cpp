@@ -202,6 +202,10 @@ PictureTrack::PictureTrack(mxflib::TrackPtr track) :
 			
 			//assert(getEditRate() == Rational(descriptor->Child(SampleRate_UL)->GetInt("Numerator"), descriptor->Child(SampleRate_UL)->GetInt("Denominator")));
 		}
+		else if(descriptor->IsA(CDCIEssenceDescriptor_UL))
+		{
+			_descriptor = new CDCIDescriptor(descriptor);
+		}
 		else if(descriptor->IsA(RGBAEssenceDescriptor_UL))
 		{
 			_descriptor = new RGBADescriptor(descriptor);
