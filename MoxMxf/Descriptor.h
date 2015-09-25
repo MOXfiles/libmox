@@ -81,7 +81,8 @@ namespace MoxMxf
 			VideoCodecMPEG2,
 			VideoCodecPNG,
 			VideoCodecOpenEXR,
-			VideoCodecDirac,
+			VideoCodecDiracCDCI,
+			VideoCodecDiracRGB,
 			VideoCodecUnknown
 		};
 		
@@ -265,7 +266,7 @@ namespace MoxMxf
 		typedef std::vector<RGBALayoutItem> RGBALayout;
 		
 		void setPixelLayout(const RGBALayout &layout) { _pixel_layout = layout; }
-		const RGBALayout & getPixelLayout() { return _pixel_layout; }
+		const RGBALayout & getPixelLayout() const { return _pixel_layout; }
 		
 	  protected:
 		virtual const mxflib::UL & getDescriptorUL() const { return mxflib::RGBAEssenceDescriptor_UL; }

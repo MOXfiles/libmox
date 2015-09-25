@@ -13,6 +13,7 @@
 
 #include "ImfHybridInputFile.h"
 #include "ImfOutputFile.h"
+#include "ImfStandardAttributes.h"
 
 namespace MoxFiles
 {
@@ -93,8 +94,26 @@ OpenEXRCodec::OpenEXRCodec(const Header &header, const ChannelList &channels) :
 {
 	setWindows(_descriptor, header);
 	
+	const float pixelAspectRatio = (float)header.pixelAspectRatio().Numerator / (float)header.pixelAspectRatio().Denominator;
+	const Imath::V2f screenWindowCenter = Imath::V2f(0, 0);
+	const float screenWindowWidth = 1;
+	const Imf::LineOrder lineOrder = Imf::INCREASING_Y;
 	
-	_exr_header = new Imf::Header(displayWindow(), dataWindow());
+	const Imf::Compression compression = (isLossless(header) ? Imf::PIZ_COMPRESSION : Imf::DWAB_COMPRESSION);
+	
+	_exr_header = new Imf::Header(displayWindow(), dataWindow(),
+									pixelAspectRatio, screenWindowCenter, screenWindowWidth, lineOrder,
+									compression);
+	
+	if( !isLossless(header) )
+	{
+		const int quality = getQuality(header);
+	
+		const float compressionLevel = pow(10.0, 1 + ((float)(101 - quality) / 25.0));
+	
+		Imf::addDwaCompressionLevel(*_exr_header, compressionLevel);
+	}
+	
 	
 	MoxMxf::RGBADescriptor::RGBALayout layout;
 	

@@ -149,6 +149,86 @@ VideoCodec::storeFrame(FrameBufferPtr frm)
 }
 
 
+bool
+VideoCodec::isLossless(const Header &header)
+{
+	const IntAttribute *videoQualityAttr = header.findTypedAttribute<IntAttribute>("videoQuality");
+	
+	return (videoQualityAttr == NULL);
+}
+
+
+void
+VideoCodec::setLossless(Header &header)
+{
+	header.erase("videoQuality");
+}
+
+
+int
+VideoCodec::getQuality(const Header &header)
+{
+	const IntAttribute *videoQualityAttr = header.findTypedAttribute<IntAttribute>("videoQuality");
+	
+	if(videoQualityAttr != NULL)
+	{
+		return videoQualityAttr->value();
+	}
+	else
+	{
+		assert(false); // rather you check for lossless first
+		
+		return 100; // is lossless, so will return highest quality setting
+	}
+}
+
+
+void
+VideoCodec::setQuality(Header &header, int quality)
+{
+	header.insert("videoQuality", IntAttribute(quality));
+}
+
+
+VideoCompression
+VideoCodec::pickCodec(bool lossless, PixelType pixelType, bool alpha)
+{
+	if(lossless)
+	{
+		if(pixelType == MoxFiles::HALF || pixelType == MoxFiles::FLOAT)
+		{
+			return MoxFiles::OPENEXR;
+		}
+		else if(pixelType == MoxFiles::UINT8)
+		{
+			if(alpha)
+				return MoxFiles::PNG;
+			else
+				return MoxFiles::DIRAC;
+		}
+		else
+		{
+			return MoxFiles::PNG;
+		}
+	}
+	else
+	{
+		if(pixelType == MoxFiles::HALF || pixelType == MoxFiles::FLOAT)
+		{
+			return MoxFiles::OPENEXR;
+		}
+		else if(pixelType == MoxFiles::UINT8)
+		{
+			return MoxFiles::DIRAC;
+		}
+		else
+		{
+			return MoxFiles::PNG; // so if you shoose lossy 10-bit, you actually get lossless 16-bit
+		}
+	}
+}
+
+
 void
 VideoCodec::setWindows(MoxMxf::VideoDescriptor &descriptor, const Header &header)
 {
@@ -316,7 +396,7 @@ getVideoCodecInfo(MoxMxf::VideoDescriptor::VideoCodec codec)
 	{
 		return getVideoCodecInfo(OPENEXR);
 	}
-	if(codec == MoxMxf::VideoDescriptor::VideoCodecDirac)
+	if(codec == MoxMxf::VideoDescriptor::VideoCodecDiracRGB || codec == MoxMxf::VideoDescriptor::VideoCodecDiracCDCI)
 	{
 		return getVideoCodecInfo(DIRAC);
 	}

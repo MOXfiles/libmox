@@ -814,7 +814,6 @@ class YCbCrtoRGBTask : public Task
 	virtual void execute();
 
   private:
-  
 	template <typename T>
 	void CopyRow();
 	

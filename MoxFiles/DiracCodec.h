@@ -23,7 +23,7 @@ namespace MoxFiles
 		DiracCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels);
 		virtual ~DiracCodec();
 		
-		virtual const MoxMxf::VideoDescriptor * getDescriptor() const { return &_descriptor; }
+		virtual const MoxMxf::VideoDescriptor * getDescriptor() const { return _descriptor; }
 		
 		virtual void compress(const FrameBuffer &frame);
 		virtual void decompress(const DataChunk &data);
@@ -31,7 +31,7 @@ namespace MoxFiles
 		virtual void end_of_stream();
 		
 	  private:
-		MoxMxf::CDCIDescriptor _descriptor;
+		MoxMxf::VideoDescriptor *_descriptor;
 		
 		SchroEncoder *_encoder;
 		SchroDecoder *_decoder;

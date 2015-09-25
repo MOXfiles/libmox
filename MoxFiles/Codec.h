@@ -53,6 +53,15 @@ namespace MoxFiles
 		virtual FrameBufferPtr getNextFrame();
 		
 		virtual void end_of_stream() {}  // i.e. no more pixels/data
+
+	  public:
+		static bool isLossless(const Header &header);
+		static void setLossless(Header &header);
+		
+		static int getQuality(const Header &header);
+		static void setQuality(Header &header, int quality); // 1-100
+		
+		static VideoCompression pickCodec(bool lossless, PixelType pixelType, bool alpha);
 				
 	  protected:		
 		virtual void storeData(DataChunkPtr dat);

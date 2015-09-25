@@ -327,8 +327,11 @@ static const mxflib::UL GC_Dirac_FrameWrapped_UL(GC_Dirac_FrameWrapped_Data);
 static const UInt8 Uncompressed_422_YCbCr_8bit_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0a, 0x04, 0x01, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02 };
 static const mxflib::UL Uncompressed_422_YCbCr_8bit_Picture_Coding_UL(Uncompressed_422_YCbCr_8bit_Picture_Coding_Data);
 
-static const UInt8 Dirac_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x73, 0x01, 0x00, 0x00 };
-static const mxflib::UL Dirac_Picture_Coding_UL(Dirac_Picture_Coding_Data);
+static const UInt8 Dirac_YCbCr_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x73, 0x01, 0x00, 0x00 };
+static const mxflib::UL Dirac_YCbCr_Picture_Coding_UL(Dirac_YCbCr_Picture_Coding_Data);
+
+static const UInt8 Dirac_RGB_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x73, 0x02, 0x00, 0x00 };
+static const mxflib::UL Dirac_RGB_Picture_Coding_UL(Dirac_RGB_Picture_Coding_Data);
 
 
 CDCIDescriptor::CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height, VideoCodec codec) :
@@ -344,16 +347,18 @@ CDCIDescriptor::CDCIDescriptor(Rational sample_rate, UInt32 width, UInt32 height
 	_white_ref_level(255),
 	_color_range(255)
 {
-	if(codec == VideoCodecDirac)
+	if(codec == VideoCodecDiracCDCI)
 	{
 		setEssenceContainerLabel(GC_Dirac_FrameWrapped_UL);
-		setPictureEssenceCoding(Dirac_Picture_Coding_UL);
+		setPictureEssenceCoding(Dirac_YCbCr_Picture_Coding_UL);
 	}
 	else if(codec == VideoCodecUncompressedCDCI)
 	{
 		setEssenceContainerLabel(MXF_GC_Uncompressed_FrameWrapped_Data);
 		setPictureEssenceCoding(Uncompressed_422_YCbCr_8bit_Picture_Coding_Data);
 	}
+	else
+		assert(false);
 }
 
 CDCIDescriptor::CDCIDescriptor(const CDCIDescriptor &other) :
@@ -396,9 +401,9 @@ CDCIDescriptor::getVideoCodec() const
 {
 	const mxflib::UL &coding = getPictureEssenceCoding();
 	
-	if(coding.Matches(Dirac_Picture_Coding_UL))
+	if(coding.Matches(Dirac_YCbCr_Picture_Coding_UL))
 	{
-		return VideoCodecDirac;
+		return VideoCodecDiracCDCI;
 	}
 	else if(coding.Matches(Uncompressed_422_YCbCr_8bit_Picture_Coding_Data))
 	{
@@ -482,6 +487,11 @@ RGBADescriptor::RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height
 	{
 		setEssenceContainerLabel(GC_Uncompressed_FrameWrapped_UL);
 		setPictureEssenceCoding(Undefined_Uncompressed_Picture_Coding_UL);
+	}
+	else if(codec == VideoCodecDiracRGB)
+	{
+		setEssenceContainerLabel(GC_Dirac_FrameWrapped_UL);
+		setPictureEssenceCoding(Dirac_RGB_Picture_Coding_UL);
 	}
 	else if(codec == VideoCodecPNG)
 	{
@@ -584,9 +594,13 @@ RGBADescriptor::getVideoCodec() const
 	{
 		return VideoCodecOpenEXR;
 	}
-	else if(coding.Matches(Dirac_Picture_Coding_UL))
+	else if(coding.Matches(Dirac_YCbCr_Picture_Coding_UL))
 	{
-		return VideoCodecDirac;
+		return VideoCodecDiracCDCI;
+	}
+	else if(coding.Matches(Dirac_RGB_Picture_Coding_UL))
+	{
+		return VideoCodecDiracRGB;
 	}
 	else
 		assert(false);
