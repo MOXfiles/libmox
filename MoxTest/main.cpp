@@ -155,6 +155,115 @@ FrameBufferYUVTest()
 	return success;
 }
 
+template <typename T, int MAX>
+static bool
+YCgCoTest()
+{
+	// This test fails.  You can not perform RGB -> YCgCo -> RGB at 8-bit without loss.  You can
+	// do it losslessly if you allocate two more bits for YCgCo.
+	bool success = true;
+	
+	const float norm = (MAX + 1) / 2;
+
+	for(int r = 0; r <= MAX; r++)
+	{
+		for(int g = 0; g <= MAX; g++)
+		{
+			for(int b = 0; b <= MAX; b++)
+			{
+				const T Y = ((float)r / 4.0) + ((float)g / 2.0) + ((float)b / 4.0) + 0.5;
+				const T Cg =  ((float)r / -4.0) + ((float)g / 2.0) + ((float)b / -4.0) + norm + 0.5;
+				const T Co =  ((float)r / 2.0) + ((float)b / -2.0) + norm + 0.5;
+				
+				const T R = (int)Y - ((int)Cg - (int)norm) + ((int)Co - (int)norm);
+				const T G = (int)Y + ((int)Cg - (int)norm);
+				const T B = (int)Y - ((int)Cg - (int)norm) - ((int)Co - (int)norm);
+				
+				// ------
+				/*
+				// another way to do it
+				//float Co_f = (float)r - (float)b;
+				//float temp = (float)b + (Co_f / 2.0);
+				//float Cg_f = (float)g - temp;
+				//float Y_f = temp + (Cg_f / 2.0);
+				
+				float Y_f = ((float)r / 4.0) + ((float)g / 2.0) + ((float)b / 4.0);
+				float Cg_f =  ((float)r / -4.0) + ((float)g / 2.0) + ((float)b / -4.0);
+				float Co_f =  ((float)r / 2.0) + ((float)b / -2.0);
+				
+				const T Y = Y_f + 0.5;
+				const T Cg =  Cg_f + norm + 0.5;
+				const T Co =  Co_f + norm + 0.5;
+				
+				//Y_f = Y;
+				//Cg_f = (float)Cg - norm;
+				//Co_f = (float)Co - norm;
+				
+				float temp2 = Y_f - Cg_f;
+				float R_f = temp2 + Co_f;
+				float G_f = Y_f + Cg_f;
+				float B_f = temp2 - Co_f;
+				
+				const T R = R_f + 0.5;
+				const T G = G_f + 0.5;
+				const T B = B_f + 0.5;
+				*/
+				// ---------
+				/*
+				// cool alternative YCoCg24 that actually works found here
+				// http://stackoverflow.com/questions/10566668/lossless-rgb-to-ycbcr-transformation
+				
+				const T Co = ((int)b - (int)r) % 0x100;
+				const int temp =  ((int)r + ((int)Co >> 1)) % 0x100;
+				const T Cg = ((int)temp - (int)g) % 0x100;
+				const T Y = ((int)g + ((int)Cg >> 1)) % 0x100;
+				
+				const T G = ((int)Y - ((int)Cg >> 1)) % 0x100;
+				const int temp2 = ((int)G + (int)Cg) % 0x100;
+				const T R = ((int)temp2 - ((int)Co >> 1)) % 0x100;
+				const T B = ((int)R + (int)Co) % 0x100;
+				
+				seems similar to YCoCg-R here
+				// http://research.microsoft.com/pubs/102040/2008_ColorTransforms_MalvarSullivanSrinivasan.PDF
+				*/
+				// -----------
+				/*
+				// JPEG 2000 reversible color transform
+				// https://en.wikipedia.org/wiki/JPEG_2000#Color_components_transformation
+				// Doesn't seem totally reversible without more bits
+				
+				const T Y = (((float)r + (2.0 * (float)g) + (float)b) / 4.0) + 0.5;
+				const int Cb = (int)b - (int)g;
+				const int Cr = (int)r - (int)g;
+				
+				const int Cg = Cb; // for display only
+				const int Co = Cr;
+				
+				const T G = (float)Y - (((float)Cb + (float)Cr) / 4.0) + 0.5;
+				const T R = Cr + G;
+				const T B = Cb + G;
+				*/
+				
+				std::cout << "{" << (int)r << ", " << (int)g << ", " << (int)b << "} -> ";
+				std::cout << "{" << (int)Y << ", " << (int)Cg << ", " << (int)Co << "} -> ";
+				std::cout << "{" << (int)R << ", " << (int)G << ", " << (int)B << "}";
+				
+				if(r != R || g != G || b != B)
+				{
+					std::cout << " NO MATCH";
+				
+					success = false;
+				}
+				
+				std::cout << std::endl;
+			}
+		}
+	}
+	
+	return success;
+}
+
+
 int main(int argc, char * const argv[])
 {
 	bool success = true;
@@ -166,6 +275,12 @@ int main(int argc, char * const argv[])
 		std::cout << (yuv_test ? "success" : "failed") << std::endl;
 		if(!yuv_test)
 			success = false;
+		
+		//std::cout << "YCgCoTest...";
+		//const bool ycgco_test = YCgCoTest<unsigned char, 255>();
+		//std::cout << (ycgco_test ? "success" : "failed") << std::endl;
+		//if(!ycgco_test)
+		//	success = false;
 	}
 	catch(std::exception &e)
 	{
