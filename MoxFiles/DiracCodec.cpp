@@ -96,6 +96,8 @@ PixelTypeFromBits(unsigned int bit_depth)
 }
 
 
+#ifdef MOXFILES_USE_SCHROEDINGER
+
 DiracCodec::DiracCodec(const Header &header, const ChannelList &channels) :
 	VideoCodec(header, channels),
 	_descriptor(NULL),
@@ -849,6 +851,442 @@ DiracCodec::decoder_pull()
 	}
 }
 
+#else // MOXFILES_USE_SCHROEDINGER
+
+DiracCodec::DiracCodec(const Header &header, const ChannelList &channels) :
+	VideoCodec(header, channels),
+	_descriptor(NULL),
+	_encoder(NULL),
+	_decoder(NULL)
+{
+	const bool isRGB = (channels.findChannel("R") != NULL);
+	
+	int depth = 8;
+	
+	if(isRGB)
+	{
+		assert(channels.findChannel("Y") == NULL);
+		
+		MoxMxf::RGBADescriptor *rgb_descriptor = new MoxMxf::RGBADescriptor(header.frameRate(), header.width(), header.height(), MoxMxf::VideoDescriptor::VideoCodecDiracRGB);
+		
+		const MoxFiles::Channel &chan = channels["R"];
+		
+		depth = PixelLayoutDepth(chan.type);
+		
+		MoxMxf::RGBADescriptor::RGBALayout layout;
+		
+		layout.push_back(MoxMxf::RGBADescriptor::RGBALayoutItem('G', depth));
+		layout.push_back(MoxMxf::RGBADescriptor::RGBALayoutItem('B', depth));
+		layout.push_back(MoxMxf::RGBADescriptor::RGBALayoutItem('R', depth));
+		
+		rgb_descriptor->setPixelLayout(layout);
+		
+		_descriptor = rgb_descriptor;
+	}
+	else
+	{
+		_descriptor = new MoxMxf::CDCIDescriptor(header.frameRate(), header.width(), header.height(), MoxMxf::VideoDescriptor::VideoCodecDiracCDCI);
+		
+		assert(false); // not actually handling this right now
+	}
+	
+	setWindows(*_descriptor, header);
+	
+
+	dirac_encoder_context_t encoder_ctx;
+
+	dirac_encoder_context_init(&encoder_ctx, VIDEO_FORMAT_CUSTOM);
+	
+	encoder_ctx.src_params.width = header.width();
+	encoder_ctx.src_params.height = header.height();
+	encoder_ctx.src_params.chroma = format444;
+	encoder_ctx.src_params.chroma_width = encoder_ctx.src_params.width;
+	encoder_ctx.src_params.chroma_height = encoder_ctx.src_params.height;
+	encoder_ctx.src_params.source_sampling = 0; // progressive
+	encoder_ctx.src_params.topfieldfirst = 0;
+	encoder_ctx.src_params.frame_rate.numerator = header.frameRate().Numerator;
+	encoder_ctx.src_params.frame_rate.denominator = header.frameRate().Denominator;
+	encoder_ctx.src_params.pix_asr.numerator = header.pixelAspectRatio().Numerator;
+	encoder_ctx.src_params.pix_asr.denominator = header.pixelAspectRatio().Denominator;
+	encoder_ctx.src_params.clean_area.width = encoder_ctx.src_params.width;
+	encoder_ctx.src_params.clean_area.height = encoder_ctx.src_params.height;
+	encoder_ctx.src_params.clean_area.left_offset = 0;
+	encoder_ctx.src_params.clean_area.top_offset = 0;
+	
+	encoder_ctx.src_params.signal_range.luma_offset = 16;
+	encoder_ctx.src_params.signal_range.luma_excursion = 219;
+	encoder_ctx.src_params.signal_range.chroma_offset = 128;
+	encoder_ctx.src_params.signal_range.chroma_excursion = 255;
+	
+	encoder_ctx.src_params.colour_spec.col_primary = CP_SDTV_525;
+	encoder_ctx.src_params.colour_spec.col_matrix.kr = 0.299f; // see libdirac_common/dirac_parser.cpp
+	encoder_ctx.src_params.colour_spec.col_matrix.kb = 0.114f;
+	encoder_ctx.src_params.colour_spec.trans_func = TF_TV;
+	
+	
+	encoder_ctx.enc_params.lossless = isLossless(header);
+	
+	if(!encoder_ctx.enc_params.lossless)
+		encoder_ctx.enc_params.qf = (double)getQuality(header) / 10.0; // (0.0 - 10.0)
+	
+	encoder_ctx.enc_params.L1_sep = 0;
+	encoder_ctx.enc_params.num_L1 = 0; // intra-only
+	
+	
+	_encoder = dirac_encoder_init(&encoder_ctx, true);
+	
+	if(_encoder == NULL)
+		throw MoxMxf::NullExc("Error creating encoder"); 
+}
+
+
+DiracCodec::DiracCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) :
+	VideoCodec(descriptor, header, channels),
+	_descriptor(NULL),
+	_encoder(NULL),
+	_decoder(NULL)
+{
+	if(descriptor.getVideoCodec() == MoxMxf::VideoDescriptor::VideoCodecDiracRGB)
+	{
+		const MoxMxf::RGBADescriptor &rgb_descriptor = dynamic_cast<const MoxMxf::RGBADescriptor &>(descriptor);
+		
+		const MoxMxf::RGBADescriptor::RGBALayout &pixelLayout = rgb_descriptor.getPixelLayout();
+		
+		const int num_channels = pixelLayout.size();
+		
+		for(int i = 0; i < num_channels; i++)
+		{
+			assert(pixelLayout[i].code == 'R' || pixelLayout[i].code == 'G' || pixelLayout[i].code == 'B' || pixelLayout[i].code == 'A');
+			
+			if(pixelLayout[i].code != 'F') // padding
+			{
+				const std::string chan_name(1, pixelLayout[i].code);
+				
+				const PixelType pixelType = PixelTypeFromBits(pixelLayout[i].depth);
+				
+				channels.insert(chan_name, Channel(pixelType));
+			}
+		}
+		
+		_descriptor = new MoxMxf::RGBADescriptor(rgb_descriptor);
+	}
+	else if(descriptor.getVideoCodec() == MoxMxf::VideoDescriptor::VideoCodecDiracCDCI)
+	{
+		const MoxMxf::CDCIDescriptor &cdci_descriptor = dynamic_cast<const MoxMxf::CDCIDescriptor &>(descriptor);
+	
+		_descriptor = new MoxMxf::CDCIDescriptor(cdci_descriptor);
+		
+		assert(false); // not handling this yet
+	}
+	else
+		throw MoxMxf::ArgExc("Bad descriptor input");
+	
+
+	_decoder = dirac_decoder_init(true);
+	
+	if(_decoder == NULL)
+		throw MoxMxf::NullExc("Error creating decoder"); 
+}
+
+
+DiracCodec::~DiracCodec()
+{
+	if(_encoder != NULL)
+		dirac_encoder_close(_encoder);
+		
+	if(_decoder != NULL)
+		dirac_decoder_close(_decoder);
+	
+	delete _descriptor;
+}
+
+
+void
+DiracCodec::compress(const FrameBuffer &frame)
+{
+	const int bit_depth = 8;
+
+	const size_t subpixel_size = sizeof(unsigned char);
+	const size_t rowbytes = subpixel_size * frame.width();
+	const size_t channel_size = rowbytes * frame.height();
+	const size_t frame_size = channel_size * 3;
+	
+	DataChunk frameBuf(frame_size);
+	
+	const MoxFiles::PixelType pixelType = (bit_depth == 12 ? MoxFiles::UINT12 :
+											bit_depth == 10 ? MoxFiles::UINT10 :
+											MoxFiles::UINT8);
+	
+	FrameBuffer dirac_buffer(frame.width(), frame.height());
+	
+	if(MoxMxf::RGBADescriptor *rgb_descriptor = dynamic_cast<MoxMxf::RGBADescriptor *>(_descriptor))
+	{
+		// RGB
+		const MoxMxf::RGBADescriptor::RGBALayout &pixelLayout = rgb_descriptor->getPixelLayout();
+		
+		assert(pixelLayout.size() == 3);
+		
+		for(int i = 0; i < pixelLayout.size(); i++)
+		{
+			if(pixelLayout[i].code != 'F')
+			{
+				const std::string chan_name(1, pixelLayout[i].code);
+				
+				dirac_buffer.insert(chan_name, Slice(pixelType, (char *)frameBuf.Data + (i * channel_size), subpixel_size, rowbytes));
+			}
+		}
+	}
+	else if(MoxMxf::CDCIDescriptor *cdci_descriptor = dynamic_cast<MoxMxf::CDCIDescriptor *>(_descriptor))
+	{
+		// YCbCr
+		dirac_buffer.insert("Y", Slice(pixelType, (char *)frameBuf.Data + (0 * channel_size), subpixel_size, rowbytes));
+		dirac_buffer.insert("Cb", Slice(pixelType, (char *)frameBuf.Data + (1 * channel_size), subpixel_size, rowbytes));
+		dirac_buffer.insert("Cr", Slice(pixelType, (char *)frameBuf.Data + (2 * channel_size), subpixel_size, rowbytes));
+	}
+	else
+		throw MoxMxf::ArgExc("Couldn't resolve descriptor");
+		
+	dirac_buffer.copyFromFrame(frame);
+	
+	
+	int result = dirac_encoder_load(_encoder, frameBuf.Data, frameBuf.Size);
+	
+	if(result < 0)
+		throw MoxMxf::ArgExc("Dirac encoding error");
+	
+	
+	encoder_pull();
+}
+
+
+void
+DiracCodec::decompress(const DataChunk &data)
+{
+	unsigned char *buf = data.Data;
+	ptrdiff_t buf_pos = 0;
+	
+	bool got_frame = false;
+	bool buffers_exist = false;
+		
+#define DIRAC_PARSE_HEADER_SIZE (4+1+4+4)
+
+	while(!got_frame || buffers_exist)
+	{
+		dirac_decoder_state_t state = dirac_parse(_decoder);
+		
+		if(state == STATE_BUFFER)
+		{
+			if(buf_pos <= (data.Size - DIRAC_PARSE_HEADER_SIZE) &&
+				buf[0] == 'B' && buf[1] == 'B' && buf[2] == 'C' && buf[3] == 'D')
+			{
+				assert(buf[0] == 'B' && buf[1] == 'B' && buf[2] == 'C' && buf[3] == 'D');
+				
+				const int buf_len = (buf[5] << 24) + (buf[6] << 16) + (buf[7] << 8) + buf[8];
+				
+				dirac_buffer(_decoder, buf, buf + buf_len);
+			
+				buf += buf_len;
+				buf_pos += buf_len;
+			}
+		}
+		else if(state == STATE_SEQUENCE)
+		{
+			// allocate buffers
+			unsigned char *buf[3] = {NULL, NULL, NULL};
+			
+            buf[0] = (unsigned char *)malloc(_decoder->src_params.width * _decoder->src_params.height);
+            buf[1] = (unsigned char *)malloc(_decoder->src_params.chroma_width * _decoder->src_params.chroma_height);
+            buf[2] = (unsigned char *)malloc(_decoder->src_params.chroma_width * _decoder->src_params.chroma_height);
+			
+            dirac_set_buf(_decoder, buf, NULL);
+			
+			buffers_exist = true;
+		}
+		else if(state == STATE_PICTURE_AVAIL)
+		{
+			decoder_pull();
+			
+			got_frame = true;
+		}
+		else if(state == STATE_SEQUENCE_END)
+		{
+			// free buffers
+			for(int i = 0; i < 3; i++)
+			{
+				if(_decoder->fbuf->buf[i])
+					free(_decoder->fbuf->buf[i]);
+				
+				_decoder->fbuf->buf[i] = NULL;
+			}
+			
+			buffers_exist = false;
+		}
+		else
+			throw MoxMxf::ArgExc("Dirac decoding error");
+	}
+}
+
+
+void
+DiracCodec::end_of_stream()
+{
+	if(_encoder != NULL)
+	{
+		dirac_encoder_end_sequence(_encoder);
+		
+		encoder_pull();
+	}
+	else if(_decoder != NULL)
+	{
+		//schro_decoder_push_end_of_stream(_decoder);
+		
+		decoder_pull();
+	}
+	else
+		assert(false); // huh?
+}
+
+
+void
+DiracCodec::encoder_pull()
+{
+	if(_encoder != NULL)
+	{
+		if(!_compressed_buf)
+		{
+			const unsigned int width = _descriptor->getStoredWidth();
+			const unsigned int height = _descriptor->getStoredHeight();
+			const size_t subpixel_size = sizeof(unsigned char);
+			const size_t buffer_size = width * height * subpixel_size * 3;
+			
+			_compressed_buf = new DataChunk(buffer_size);
+		}
+	
+		bool encoder_go = true;
+		
+		while(encoder_go)
+		{
+			_encoder->enc_buf.buffer = _compressed_buf->Data;
+			_encoder->enc_buf.size = _compressed_buf->Size;
+		
+			dirac_encoder_state_t state = dirac_encoder_output(_encoder);
+			
+			if(state == ENC_STATE_AVAIL)
+			{
+				const int parse_code = _encoder->enc_buf.buffer[4];
+				
+				if(_encoder->enc_buf.size > 0)
+				{
+					DataChunkPtr data = new DataChunk(_encoder->enc_buf.size, _encoder->enc_buf.buffer);
+					
+					storeData(data);
+				}
+			}
+			else if(state == ENC_STATE_BUFFER)
+			{
+				encoder_go = false;
+			}
+			else if(state == ENC_STATE_EOS)
+			{
+				encoder_go = false;
+			}
+			else if(state == ENC_STATE_INVALID)
+			{
+				throw MoxMxf::ArgExc("Something bad happened");
+			}
+			else
+				throw MoxMxf::ArgExc("Unknown encoder state");
+		}
+	}
+	else
+		assert(false); // only call on encoder
+}
+
+
+void
+DiracCodec::decoder_pull()
+{
+	if(dirac_parse(_decoder) == STATE_PICTURE_AVAIL)
+	{
+		const unsigned int width = _descriptor->getStoredWidth();
+		const unsigned int height = _descriptor->getStoredHeight();
+		
+		const int frame_depth = 8;
+	
+		FrameBuffer dirac_frameBuffer(width, height);
+					
+		FrameBufferPtr frame_buffer = new FrameBuffer(width, height);
+	
+		if(MoxMxf::RGBADescriptor *rgb_descriptor = dynamic_cast<MoxMxf::RGBADescriptor *>(_descriptor))
+		{
+			const MoxMxf::RGBADescriptor::RGBALayout &pixelLayout = rgb_descriptor->getPixelLayout();
+			
+			assert(pixelLayout.size() == 3);
+			
+			for(int i = 0; i < pixelLayout.size(); i++)
+			{
+				if(pixelLayout[i].code != 'F')
+				{
+					const std::string chan_name(1, pixelLayout[i].code);
+					
+					const PixelType pixelType = PixelTypeFromBits(pixelLayout[i].depth);
+					
+					const ptrdiff_t dirac_xStride = (frame_depth > 8 ? sizeof(short) : sizeof(unsigned char));
+					const ptrdiff_t dirac_yStride = dirac_xStride * _decoder->src_params.width;
+					
+					dirac_frameBuffer.insert(chan_name, Slice(pixelType, (char *)_decoder->fbuf->buf[i], dirac_xStride, dirac_yStride));
+					
+					
+					const size_t xStride = (pixelLayout[i].depth > 8 ? sizeof(unsigned short) : sizeof(unsigned char));
+					
+					const size_t rowbytes = width * xStride;
+					const size_t mem_size = height * rowbytes;
+					
+					DataChunkPtr chan_data = new DataChunk(mem_size);
+					
+					frame_buffer->insert(chan_name, Slice(pixelType, (char *)chan_data->Data, xStride, rowbytes));
+					
+					frame_buffer->attachData(chan_data);
+				}
+			}
+		}
+		else if(MoxMxf::CDCIDescriptor *cdci_descriptor = dynamic_cast<MoxMxf::CDCIDescriptor *>(_descriptor))
+		{
+			assert(false); // not handling different bit depths yet
+		
+			const char *chans[3] = {"Y", "Cb", "Cr"};
+			
+			for(int i = 0; i < 3; i++)
+			{
+				const ptrdiff_t xStride = (frame_depth == 16 ? sizeof(short) : sizeof(unsigned char));
+				const ptrdiff_t yStride = xStride * _decoder->src_params.width;
+				
+				dirac_frameBuffer.insert(chans[i], Slice(MoxFiles::UINT8, (char *)_decoder->fbuf->buf[i], yStride));
+				
+				const size_t rowbytes = width * xStride;
+				const size_t mem_size = height * rowbytes;
+				
+				DataChunkPtr chan_data = new DataChunk(mem_size);
+				
+				frame_buffer->insert(chans[i], Slice(MoxFiles::UINT8, (char *)chan_data->Data, xStride, rowbytes));
+				
+				frame_buffer->attachData(chan_data);
+			}
+		}
+		
+		//if(frame_depth > 8)
+		//	ConvertToUnsigned(schro_frameBuffer);
+		
+		frame_buffer->copyFromFrame(dirac_frameBuffer);
+		
+		storeFrame(frame_buffer);
+		
+		//schro_frame_unref(schro_frame);
+	}
+}
+
+
+#endif // MOXFILES_USE_SCHROEDINGER
 
 bool
 DiracCodecInfo::canCompressType(PixelType pixelType) const

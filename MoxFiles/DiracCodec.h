@@ -12,7 +12,12 @@
 
 #include <MoxFiles/Codec.h>
 
+#ifdef MOXFILES_USE_SCHROEDINGER
 #include <schroedinger/schro.h>
+#else
+#include <libdirac_encoder/dirac_encoder.h>
+#include <libdirac_decoder/dirac_parser.h>
+#endif
 
 namespace MoxFiles
 {
@@ -33,9 +38,16 @@ namespace MoxFiles
 	  private:
 		MoxMxf::VideoDescriptor *_descriptor;
 		
+	#ifdef MOXFILES_USE_SCHROEDINGER
 		SchroEncoder *_encoder;
 		SchroDecoder *_decoder;
+	#else
+		dirac_encoder_t	*_encoder;
+		dirac_decoder_t *_decoder;
 		
+		DataChunkPtr _compressed_buf;
+	#endif
+	
 		void encoder_pull();
 		void decoder_pull();
 	};
