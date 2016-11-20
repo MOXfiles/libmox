@@ -115,6 +115,66 @@ VideoDescriptor::VideoDescriptor(mxflib::MDObjectPtr descriptor) :
 		_picture_essence_coding = UL(picture_essence_coding->GetData().Data);
 	else
 		assert(false);
+	
+	
+	mxflib::MDObjectPtr subdescriptor_array = descriptor->Child(SubDescriptors_UL);
+	
+	if(subdescriptor_array && subdescriptor_array->GetClass() == TYPEARRAY)
+	{
+		for(mxflib::MDObject::const_iterator sub_itr = subdescriptor_array->begin(); sub_itr != subdescriptor_array->end(); ++sub_itr)
+		{
+			mxflib::MDObjectPtr subdescriptor_ref = sub_itr->second;
+		
+			if(subdescriptor_ref)
+			{
+				assert(*subdescriptor_ref->GetValueType()->GetTypeUL() == StrongRef_UL);
+				assert(subdescriptor_ref->GetRefType() == TypeRefStrong);
+				
+				mxflib::MDObjectPtr subdescriptor = subdescriptor_ref->GetRef();
+				
+				if(*subdescriptor->GetUL() == JPEG2000PictureSubDescriptor_UL)
+				{
+					_rsiz = subdescriptor->GetInt(Rsiz_UL);
+					_xsiz = subdescriptor->GetInt(Xsiz_UL);
+					_ysiz = subdescriptor->GetInt(Ysiz_UL);
+					_xosiz = subdescriptor->GetInt(XOsiz_UL);
+					_yosiz = subdescriptor->GetInt(YOsiz_UL);
+					_xtsiz = subdescriptor->GetInt(XTsiz_UL);
+					_ytsiz = subdescriptor->GetInt(YTsiz_UL);
+					_xtosiz = subdescriptor->GetInt(XTOsiz_UL);
+					_ytosiz = subdescriptor->GetInt(YTOsiz_UL);
+					
+					
+					mxflib::MDObjectPtr component_array = subdescriptor->Child(PictureComponentSizing_UL);
+					
+					if(component_array)
+					{
+						assert(component_array->GetClass() == TYPEARRAY);
+						assert(component_array->size() == subdescriptor->GetInt(Csiz_UL));
+						
+						for(mxflib::MDObject::const_iterator o_itr = component_array->begin(); o_itr != component_array->end(); ++o_itr)
+						{
+							mxflib::MDObjectPtr component_object = o_itr->second;
+							
+							PictureComponent component;
+							
+							component.ssiz = component_object->GetInt("Ssiz");
+							component.xrsiz = component_object->GetInt("XRsiz");
+							component.yrsiz = component_object->GetInt("YRsiz");
+							
+							_picture_component_sizing.push_back(component);
+						}
+					}
+					else
+						assert(false);
+				}
+				else
+					assert(false); // not handling this type
+			}
+			else
+				assert(false);
+		}
+	}
 }
 
 // Capture Gamma
@@ -162,7 +222,16 @@ VideoDescriptor::VideoDescriptor(Rational sample_rate, UInt32 width, UInt32 heig
 	_image_alignment_offset(0),
 	_image_start_offset(0),
 	_image_end_offset(0),
-	_field_dominance(1)
+	_field_dominance(1),
+	_rsiz(0),
+	_xsiz(0),
+	_ysiz(0),
+	_xosiz(0),
+	_yosiz(0),
+	_xtsiz(0),
+	_ytsiz(0),
+	_xtosiz(0),
+	_ytosiz(0)
 {
 	_aspect_ratio.Reduce();
 
@@ -197,6 +266,16 @@ VideoDescriptor::VideoDescriptor(const VideoDescriptor &other) :
 	_image_end_offset = other._image_end_offset;
 	_field_dominance = other._field_dominance;
 	_picture_essence_coding = other._picture_essence_coding;
+	_rsiz = other._rsiz;
+	_xsiz = other._rsiz;
+	_ysiz = other._rsiz;
+	_xosiz = other._rsiz;
+	_yosiz = other._rsiz;
+	_xtsiz = other._rsiz;
+	_ytsiz = other._rsiz;
+	_xtosiz = other._rsiz;
+	_ytosiz = other._rsiz;
+	_picture_component_sizing = other._picture_component_sizing;
 }
 
 mxflib::MDObjectPtr
@@ -246,6 +325,44 @@ VideoDescriptor::makeDescriptorObj() const
 	
 	assert(!!_picture_essence_coding); // you must call setPictureEssenceCoding()
 	descriptor->AddChild(PictureEssenceCoding_UL)->SetValue(_picture_essence_coding.GetValue(), _picture_essence_coding.Size());
+	
+	
+	if(getVideoCodec() == VideoCodecJPEG2000)
+	{
+		mxflib::MDObjectPtr subdescriptor = new MDObject(JPEG2000PictureSubDescriptor_UL);
+		
+		subdescriptor->SetInt(Rsiz_UL, _rsiz);
+		subdescriptor->SetInt(Xsiz_UL, _xsiz);
+		subdescriptor->SetInt(Ysiz_UL, _ysiz);
+		subdescriptor->SetInt(XOsiz_UL, _xosiz);
+		subdescriptor->SetInt(YOsiz_UL, _yosiz);
+		subdescriptor->SetInt(XTsiz_UL, _xtsiz);
+		subdescriptor->SetInt(YTsiz_UL, _ytsiz);
+		subdescriptor->SetInt(XTOsiz_UL, _xtosiz);
+		subdescriptor->SetInt(YTOsiz_UL, _ytosiz);
+		
+		if(_picture_component_sizing.size() > 0)
+		{
+			subdescriptor->SetInt(Csiz_UL, _picture_component_sizing.size());
+			
+			mxflib::MDObjectPtr picture_component_array = subdescriptor->AddChild(PictureComponentSizing_UL);
+			
+			for(int i=0; i < _picture_component_sizing.size(); i++)
+			{
+				const PictureComponent &picture_component = _picture_component_sizing[i];
+				
+				mxflib::MDObjectPtr item = picture_component_array->AddChild();
+				
+				item->SetInt("Ssiz", picture_component.ssiz);
+				item->SetInt("XRsiz", picture_component.xrsiz);
+				item->SetInt("YRsiz", picture_component.yrsiz);
+			}
+		}
+		
+		mxflib::MDObjectPtr subdescriptors = descriptor->AddChild(SubDescriptors_UL);
+		mxflib::MDObjectPtr ref = subdescriptors->AddChild();
+		ref->MakeRef(subdescriptor);
+	}
 	
 	return descriptor;
 }
@@ -460,6 +577,14 @@ static const mxflib::UL GC_Uncompressed_FrameWrapped_UL(GC_Uncompressed_FrameWra
 static const UInt8 Undefined_Uncompressed_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x01, 0x02, 0x01, 0x7f, 0x00, 0x00, 0x00 };
 static const mxflib::UL Undefined_Uncompressed_Picture_Coding_UL(Undefined_Uncompressed_Picture_Coding_Data);
 
+// FrameWrapped JPEG 2000 (ulmap.h only has the node above as MXFGCJP2K_UL)
+static const UInt8 MXFGCJP2K_FrameWrapped_UL_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x00, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x0c, 0x01, 0x00 };
+static const mxflib::UL MXFGCJP2K_FrameWrapped_UL(MXFGCJP2K_FrameWrapped_UL_Data);
+
+// the node above is seen in esp_jp2k.cpp, but MOX added this
+static const UInt8 JP2K_Generic_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x07, 0x04, 0x01, 0x02, 0x02, 0x03, 0x01, 0x02, 0x00 };
+static const mxflib::UL JP2K_Generic_Picture_Coding_UL(JP2K_Generic_Picture_Coding_Data);
+
 
 // MOX ULs
 static const UInt8 GC_PNG_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x15, 0x01, 0x00 };
@@ -468,11 +593,24 @@ static const mxflib::UL GC_PNG_FrameWrapped_UL(GC_PNG_FrameWrapped_Data);
 static const UInt8 GC_OpenEXR_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x16, 0x01, 0x00 };
 static const mxflib::UL GC_OpenEXR_FrameWrapped_UL(GC_OpenEXR_FrameWrapped_Data);
 
+static const UInt8 GC_JPEG_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x18, 0x01, 0x00 };
+static const mxflib::UL GC_JPEG_FrameWrapped_UL(GC_JPEG_FrameWrapped_Data);
+
+static const UInt8 GC_DPX_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x19, 0x01, 0x00 };
+static const mxflib::UL GC_DPX_FrameWrapped_UL(GC_DPX_FrameWrapped_Data);
+
+
 static const UInt8 PNG_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x03, 0x01, 0x00 };
 static const mxflib::UL PNG_Picture_Coding_UL(PNG_Picture_Coding_Data);
 
 static const UInt8 OpenEXR_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x04, 0x01, 0x00 };
 static const mxflib::UL OpenEXR_Picture_Coding_UL(OpenEXR_Picture_Coding_Data);
+
+static const UInt8 JPEG_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x05, 0x01, 0x00 };
+static const mxflib::UL JPEG_Picture_Coding_UL(JPEG_Picture_Coding_Data);
+
+static const UInt8 DPX_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x06, 0x01, 0x00 };
+static const mxflib::UL DPX_Picture_Coding_UL(DPX_Picture_Coding_Data);
 
 
 RGBADescriptor::RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height, VideoCodec codec) :
@@ -502,6 +640,21 @@ RGBADescriptor::RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height
 	{
 		setEssenceContainerLabel(GC_OpenEXR_FrameWrapped_UL);
 		setPictureEssenceCoding(OpenEXR_Picture_Coding_UL);
+	}
+	else if(codec == VideoCodecJPEG)
+	{
+		setEssenceContainerLabel(GC_JPEG_FrameWrapped_UL);
+		setPictureEssenceCoding(JPEG_Picture_Coding_UL);
+	}
+	else if(codec == VideoCodecJPEG2000)
+	{
+		setEssenceContainerLabel(MXFGCJP2K_FrameWrapped_UL);
+		setPictureEssenceCoding(JP2K_Generic_Picture_Coding_UL);
+	}
+	else if(codec == VideoCodecDPX)
+	{
+		setEssenceContainerLabel(GC_DPX_FrameWrapped_UL);
+		setPictureEssenceCoding(DPX_Picture_Coding_UL);
 	}
 	else
 		throw ArgExc("Unsupported RGB codec");
@@ -593,6 +746,18 @@ RGBADescriptor::getVideoCodec() const
 	else if(coding.Matches(OpenEXR_Picture_Coding_UL))
 	{
 		return VideoCodecOpenEXR;
+	}
+	else if(coding.Matches(JPEG_Picture_Coding_UL))
+	{
+		return VideoCodecJPEG;
+	}
+	else if(coding.Matches(JP2K_Generic_Picture_Coding_UL))
+	{
+		return VideoCodecJPEG2000;
+	}
+	else if(coding.Matches(DPX_Picture_Coding_UL))
+	{
+		return VideoCodecDPX;
 	}
 	else if(coding.Matches(Dirac_YCbCr_Picture_Coding_UL))
 	{

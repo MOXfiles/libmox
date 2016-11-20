@@ -298,7 +298,7 @@ CompressChannelBits::CompressChannelBits(TaskGroup *group, char *origin, ptrdiff
 	_frame(frame),
 	_y(y)
 {
-
+	assert(frame.dataWindow().min.x == 0 && frame.dataWindow().min.y == 0);
 }
 
 void

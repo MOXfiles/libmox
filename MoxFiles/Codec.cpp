@@ -10,7 +10,10 @@
 #include <MoxFiles/Codec.h>
 
 #include <MoxFiles/UncompressedVideoCodec.h>
+#include <MoxFiles/JPEGCodec.h>
+#include <MoxFiles/JPEG2000Codec.h>
 #include <MoxFiles/PNGCodec.h>
+#include <MoxFiles/DPXCodec.h>
 #include <MoxFiles/OpenEXRCodec.h>
 #include <MoxFiles/DiracCodec.h>
 #include <MoxFiles/MPEGCodec.h>
@@ -199,6 +202,10 @@ VideoCodec::pickCodec(bool lossless, PixelType pixelType, bool alpha)
 		{
 			return MoxFiles::OPENEXR;
 		}
+		else if(pixelType == MoxFiles::UINT10 || pixelType == MoxFiles::UINT12)
+		{
+			return MoxFiles::DPX;
+		}
 		else if(pixelType == MoxFiles::UINT8)
 		{
 			if(alpha)
@@ -223,7 +230,7 @@ VideoCodec::pickCodec(bool lossless, PixelType pixelType, bool alpha)
 		}
 		else
 		{
-			return MoxFiles::PNG; // so if you shoose lossy 10-bit, you actually get lossless 16-bit
+			return MoxFiles::JPEG2000;
 		}
 	}
 }
@@ -368,7 +375,10 @@ getVideoCodecInfo(VideoCompression videoCompression)
 	if( codecList.empty() )
 	{
 		codecList[UNCOMPRESSED] = new UncompressedVideoCodecInfo;
+		codecList[JPEG] = new JPEGCodecInfo;
+		codecList[JPEG2000] = new JPEG2000CodecInfo;
 		codecList[PNG] = new PNGCodecInfo;
+		codecList[DPX] = new DPXCodecInfo;
 		codecList[OPENEXR] = new OpenEXRCodecInfo;
 		codecList[DIRAC] = new DiracCodecInfo;
 		codecList[MPEG] = new MPEGCodecInfo;
@@ -388,9 +398,21 @@ getVideoCodecInfo(MoxMxf::VideoDescriptor::VideoCodec codec)
 	{
 		return getVideoCodecInfo(UNCOMPRESSED);
 	}
+	if(codec == MoxMxf::VideoDescriptor::VideoCodecJPEG)
+	{
+		return getVideoCodecInfo(JPEG);
+	}
+	if(codec == MoxMxf::VideoDescriptor::VideoCodecJPEG2000)
+	{
+		return getVideoCodecInfo(JPEG2000);
+	}
 	if(codec == MoxMxf::VideoDescriptor::VideoCodecPNG)
 	{
 		return getVideoCodecInfo(PNG);
+	}
+	if(codec == MoxMxf::VideoDescriptor::VideoCodecDPX)
+	{
+		return getVideoCodecInfo(DPX);
 	}
 	if(codec == MoxMxf::VideoDescriptor::VideoCodecOpenEXR)
 	{

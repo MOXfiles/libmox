@@ -79,8 +79,11 @@ namespace MoxMxf
 			VideoCodecUncompressedCDCI,
 			VideoCodecUncompressedRGB,
 			VideoCodecMPEG2,
-			VideoCodecPNG,
 			VideoCodecOpenEXR,
+			VideoCodecPNG,
+			VideoCodecJPEG,
+			VideoCodecJPEG2000,
+			VideoCodecDPX,
 			VideoCodecDiracCDCI,
 			VideoCodecDiracRGB,
 			VideoCodecUnknown
@@ -140,6 +143,41 @@ namespace MoxMxf
 		CaptureGamma getCaptureGamma() const;
 		void setCaputeGamma(CaptureGamma gamma);
 		
+		
+		UInt32 getRsiz() const { return _rsiz; }
+		UInt32 getXsiz() const { return _xsiz; }
+		UInt32 getYsiz() const { return _ysiz; }
+		UInt32 getXOsiz() const { return _xosiz; }
+		UInt32 getYOsiz() const { return _yosiz; }
+		UInt32 getXTsiz() const { return _xtsiz; }
+		UInt32 getYTsiz() const { return _ytsiz; }
+		UInt32 getXTOsiz() const { return _xtosiz; }
+		UInt32 getYTOsiz() const { return _ytosiz; }
+		
+		void setRsiz(UInt32 val) { _rsiz = val; }
+		void setXsiz(UInt32 val) { _xsiz = val; }
+		void setYsiz(UInt32 val) { _ysiz = val; }
+		void setXOsiz(UInt32 val) { _xosiz = val; }
+		void setYOsiz(UInt32 val) { _yosiz = val; }
+		void setXTsiz(UInt32 val) { _xtsiz = val; }
+		void setYTsiz(UInt32 val) { _ytsiz = val; }
+		void setXTOsiz(UInt32 val) { _xtosiz = val; }
+		void setYTOsiz(UInt32 val) { _ytosiz = val; }
+		
+		typedef struct PictureComponent
+		{
+			UInt8 ssiz;
+			UInt8 xrsiz;
+			UInt8 yrsiz;
+			
+			PictureComponent(UInt8 s = 0, UInt8 xr = 0, UInt8 yr = 0) : ssiz(s), xrsiz(xr), yrsiz(yr) {}
+		} PictureComponent;
+		
+		typedef std::vector<PictureComponent> PictureComponentSizing;
+		
+		const PictureComponentSizing & getPictureComponentSizing() const { return _picture_component_sizing; }
+		void setPictureComponentSizing(const PictureComponentSizing &val) { _picture_component_sizing = val; }
+		
 	  protected:
 		const mxflib::UL & getPictureEssenceCoding() const { return _picture_essence_coding; }
 		void setPictureEssenceCoding(const mxflib::UL &ul) { _picture_essence_coding = ul; }
@@ -172,6 +210,18 @@ namespace MoxMxf
 		UInt32 _image_end_offset;
 		UInt8 _field_dominance;
 		mxflib::UL _picture_essence_coding;
+		
+		// SMPTE 422M JPEG 2000 sub-descriptor
+		UInt32 _rsiz;
+		UInt32 _xsiz;
+		UInt32 _ysiz;
+		UInt32 _xosiz;
+		UInt32 _yosiz;
+		UInt32 _xtsiz;
+		UInt32 _ytsiz;
+		UInt32 _xtosiz;
+		UInt32 _ytosiz;
+		PictureComponentSizing _picture_component_sizing;
 	};
 
 	class CDCIDescriptor : public VideoDescriptor
@@ -320,7 +370,7 @@ namespace MoxMxf
 		virtual const mxflib::UL & getDescriptorUL() const { return mxflib::MPEG2VideoDescriptor_UL; }
 		
 	  private:
-		// SMPTE ST 381-2:2011 10.2 MPEG Video Sescriptor
+		// SMPTE ST 381-2:2011 10.2 MPEG Video Descriptor
 		bool _single_sequence;
 		bool _constant_b_picture;
 		UInt8 _coded_content_type;

@@ -79,6 +79,4 @@ DeleteIOStream(FileHandle file)
 } // namespace
 
 
-#pragma mark-
-
 

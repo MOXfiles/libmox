@@ -15,7 +15,10 @@ namespace MoxFiles
 	enum VideoCompression
 	{
 		UNCOMPRESSED  = 0,	// no compression
+		JPEG,
+		JPEG2000,
 		PNG,
+		DPX,
 		OPENEXR,
 		DIRAC,
 		MPEG,
