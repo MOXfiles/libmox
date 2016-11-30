@@ -320,7 +320,7 @@ CopyTask::execute()
 		break;
 		
 		case UINT12:
-			CopyRow<UInt16_t>(dest_origin, _destination_slice.xStride);
+			CopyRow<UInt12_t>(dest_origin, _destination_slice.xStride);
 		break;
 		
 		case UINT16:
@@ -365,7 +365,7 @@ CopyTask::CopyRow(char *dest_origin, ptrdiff_t dest_xStride)
 		break;
 		
 		case UINT12:
-			CopyRow<DSTTYPE, UInt16_t>(dest_origin, dest_xStride, source_origin, _source_slice.xStride, width);
+			CopyRow<DSTTYPE, UInt12_t>(dest_origin, dest_xStride, source_origin, _source_slice.xStride, width);
 		break;
 		
 		case UINT16:
@@ -662,7 +662,7 @@ RGBtoYCbCrTask::execute()
 		break;
 		
 		case UINT12:
-			CopyRow<UInt16_t>();
+			CopyRow<UInt12_t>();
 		break;
 		
 		case UINT16:
@@ -866,7 +866,7 @@ YCbCrtoRGBTask::execute()
 		break;
 		
 		case UINT12:
-			CopyRow<UInt16_t>();
+			CopyRow<UInt12_t>();
 		break;
 		
 		case UINT16:
