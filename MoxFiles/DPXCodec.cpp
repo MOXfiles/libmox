@@ -64,6 +64,8 @@ DPXCodec::DPXCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, Ch
 	_depth(DPX_10),
 	_channels(DPX_RGB)
 {
+	assert(_descriptor.getVideoCodec() == MoxMxf::VideoDescriptor::VideoCodecDPX);
+
 	const MoxMxf::RGBADescriptor::RGBALayout &pixelLayout = _descriptor.getPixelLayout();
 	
 	for(MoxMxf::RGBADescriptor::RGBALayout::const_iterator i = pixelLayout.begin(); i != pixelLayout.end(); ++i)

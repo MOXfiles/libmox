@@ -596,6 +596,12 @@ static const mxflib::UL GC_OpenEXR_FrameWrapped_UL(GC_OpenEXR_FrameWrapped_Data)
 static const UInt8 GC_JPEG_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x18, 0x01, 0x00 };
 static const mxflib::UL GC_JPEG_FrameWrapped_UL(GC_JPEG_FrameWrapped_Data);
 
+static const UInt8 GC_JPEG_LS_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x1a, 0x01, 0x00 };
+static const mxflib::UL GC_JPEG_LS_FrameWrapped_UL(GC_JPEG_LS_FrameWrapped_Data);
+
+static const UInt8 GC_JPEG_XT_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x1b, 0x01, 0x00 };
+static const mxflib::UL GC_JPEG_XT_FrameWrapped_UL(GC_JPEG_XT_FrameWrapped_Data);
+
 static const UInt8 GC_DPX_FrameWrapped_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x19, 0x01, 0x00 };
 static const mxflib::UL GC_DPX_FrameWrapped_UL(GC_DPX_FrameWrapped_Data);
 
@@ -608,6 +614,12 @@ static const mxflib::UL OpenEXR_Picture_Coding_UL(OpenEXR_Picture_Coding_Data);
 
 static const UInt8 JPEG_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x05, 0x01, 0x00 };
 static const mxflib::UL JPEG_Picture_Coding_UL(JPEG_Picture_Coding_Data);
+
+static const UInt8 JPEG_LS_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x07, 0x01, 0x00 };
+static const mxflib::UL JPEG_LS_Picture_Coding_UL(JPEG_LS_Picture_Coding_Data);
+
+static const UInt8 JPEG_XT_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x08, 0x01, 0x00 };
+static const mxflib::UL JPEG_XT_Picture_Coding_UL(JPEG_XT_Picture_Coding_Data);
 
 static const UInt8 DPX_Picture_Coding_Data[16] = { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x0c, 0x04, 0x01, 0x02, 0x02, 0x03, 0x06, 0x01, 0x00 };
 static const mxflib::UL DPX_Picture_Coding_UL(DPX_Picture_Coding_Data);
@@ -650,6 +662,16 @@ RGBADescriptor::RGBADescriptor(Rational sample_rate, UInt32 width, UInt32 height
 	{
 		setEssenceContainerLabel(MXFGCJP2K_FrameWrapped_UL);
 		setPictureEssenceCoding(JP2K_Generic_Picture_Coding_UL);
+	}
+	else if(codec == VideoCodecJPEGLS)
+	{
+		setEssenceContainerLabel(GC_JPEG_LS_FrameWrapped_UL);
+		setPictureEssenceCoding(JPEG_LS_Picture_Coding_UL);
+	}
+	else if(codec == VideoCodecJPEGXT)
+	{
+		setEssenceContainerLabel(GC_JPEG_XT_FrameWrapped_UL);
+		setPictureEssenceCoding(JPEG_XT_Picture_Coding_UL);
 	}
 	else if(codec == VideoCodecDPX)
 	{
@@ -754,6 +776,14 @@ RGBADescriptor::getVideoCodec() const
 	else if(coding.Matches(JP2K_Generic_Picture_Coding_UL))
 	{
 		return VideoCodecJPEG2000;
+	}
+	else if(coding.Matches(JPEG_LS_Picture_Coding_UL))
+	{
+		return VideoCodecJPEGLS;
+	}
+	else if(coding.Matches(JPEG_XT_Picture_Coding_UL))
+	{
+		return VideoCodecJPEGXT;
 	}
 	else if(coding.Matches(DPX_Picture_Coding_UL))
 	{

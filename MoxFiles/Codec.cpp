@@ -12,6 +12,8 @@
 #include <MoxFiles/UncompressedVideoCodec.h>
 #include <MoxFiles/JPEGCodec.h>
 #include <MoxFiles/JPEG2000Codec.h>
+#include <MoxFiles/JPEGLSCodec.h>
+//#include <MoxFiles/JPEGXTCodec.h>
 #include <MoxFiles/PNGCodec.h>
 #include <MoxFiles/DPXCodec.h>
 #include <MoxFiles/OpenEXRCodec.h>
@@ -377,6 +379,8 @@ getVideoCodecInfo(VideoCompression videoCompression)
 		codecList[UNCOMPRESSED] = new UncompressedVideoCodecInfo;
 		codecList[JPEG] = new JPEGCodecInfo;
 		codecList[JPEG2000] = new JPEG2000CodecInfo;
+		codecList[JPEGLS] = new JPEGLSCodecInfo;
+		//codecList[JPEGXT] = new JPEGXTCodecInfo;
 		codecList[PNG] = new PNGCodecInfo;
 		codecList[DPX] = new DPXCodecInfo;
 		codecList[OPENEXR] = new OpenEXRCodecInfo;
@@ -398,27 +402,35 @@ getVideoCodecInfo(MoxMxf::VideoDescriptor::VideoCodec codec)
 	{
 		return getVideoCodecInfo(UNCOMPRESSED);
 	}
-	if(codec == MoxMxf::VideoDescriptor::VideoCodecJPEG)
+	else if(codec == MoxMxf::VideoDescriptor::VideoCodecJPEG)
 	{
 		return getVideoCodecInfo(JPEG);
 	}
-	if(codec == MoxMxf::VideoDescriptor::VideoCodecJPEG2000)
+	else if(codec == MoxMxf::VideoDescriptor::VideoCodecJPEG2000)
 	{
 		return getVideoCodecInfo(JPEG2000);
 	}
-	if(codec == MoxMxf::VideoDescriptor::VideoCodecPNG)
+	else if(codec == MoxMxf::VideoDescriptor::VideoCodecJPEGLS)
+	{
+		return getVideoCodecInfo(JPEGLS);
+	}
+	//else if(codec == MoxMxf::VideoDescriptor::VideoCodecJPEGXT)
+	//{
+	//	return getVideoCodecInfo(JPEGXT);
+	//}
+	else if(codec == MoxMxf::VideoDescriptor::VideoCodecPNG)
 	{
 		return getVideoCodecInfo(PNG);
 	}
-	if(codec == MoxMxf::VideoDescriptor::VideoCodecDPX)
+	else if(codec == MoxMxf::VideoDescriptor::VideoCodecDPX)
 	{
 		return getVideoCodecInfo(DPX);
 	}
-	if(codec == MoxMxf::VideoDescriptor::VideoCodecOpenEXR)
+	else if(codec == MoxMxf::VideoDescriptor::VideoCodecOpenEXR)
 	{
 		return getVideoCodecInfo(OPENEXR);
 	}
-	if(codec == MoxMxf::VideoDescriptor::VideoCodecDiracRGB || codec == MoxMxf::VideoDescriptor::VideoCodecDiracCDCI)
+	else if(codec == MoxMxf::VideoDescriptor::VideoCodecDiracRGB || codec == MoxMxf::VideoDescriptor::VideoCodecDiracCDCI)
 	{
 		return getVideoCodecInfo(DIRAC);
 	}

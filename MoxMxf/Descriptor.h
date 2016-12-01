@@ -83,6 +83,8 @@ namespace MoxMxf
 			VideoCodecPNG,
 			VideoCodecJPEG,
 			VideoCodecJPEG2000,
+			VideoCodecJPEGLS,
+			VideoCodecJPEGXT,
 			VideoCodecDPX,
 			VideoCodecDiracCDCI,
 			VideoCodecDiracRGB,

@@ -1,25 +1,25 @@
 /*
- *  DPXCodec.h
+ *  JPEGXTCodec.h
  *  MoxFiles
  *
- *  Created by Brendan Bolles on 5/12/16.
+ *  Created by Brendan Bolles on 11/27/16.
  *  Copyright 2016 fnord. All rights reserved.
  *
  */
 
-#ifndef MOXFILES_DPXCODEC_H
-#define MOXFILES_DPXCODEC_H
+#ifndef MOXFILES_JPEGXTCODEC_H
+#define MOXFILES_JPEGXTCODEC_H
 
 #include <MoxFiles/Codec.h>
 
 namespace MoxFiles
 {
-	class DPXCodec : public VideoCodec
+	class JPEGXTCodec : public VideoCodec
 	{
 	  public:
-		DPXCodec(const Header &header, const ChannelList &channels);
-		DPXCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels);
-		virtual ~DPXCodec();
+		JPEGXTCodec(const Header &header, const ChannelList &channels);
+		JPEGXTCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels);
+		virtual ~JPEGXTCodec();
 		
 		virtual const MoxMxf::VideoDescriptor * getDescriptor() const { return &_descriptor; }
 		
@@ -29,32 +29,35 @@ namespace MoxFiles
 	  private:
 		MoxMxf::RGBADescriptor _descriptor;
 		
-		enum DPX_Channels {
-			DPX_RGB,
-			DPX_RGBA
+		
+		enum JPEGXT_Channels {
+			JPEGXT_RGB,
+			JPEGXT_RGBA
 		};
 		
-		DPX_Channels _channels;
+		JPEGXT_Channels _channels;
 		
-		enum DPX_Depth {
-			DPX_8,
-			DPX_10,
-			DPX_12,
-			DPX_16
+		enum JPEGXT_Depth {
+			JPEGXT_8,
+			JPEGXT_10,
+			JPEGXT_12,
+			JPEGXT_16,
+			JPEGXT_FLOAT
 		};
 		
-		DPX_Depth _depth;
+		JPEGXT_Depth _depth;
 		
-		const Rational _pixelAspectRatio;
-		const Rational _frameRate;
+		
+		bool _lossless;
+		int _quality;
 	};
 	
 	
-	class DPXCodecInfo : public VideoCodecInfo
+	class JPEGXTCodecInfo : public VideoCodecInfo
 	{
 	  public:
-		DPXCodecInfo() {}
-		virtual ~DPXCodecInfo() {}
+		JPEGXTCodecInfo() {}
+		virtual ~JPEGXTCodecInfo() {}
 		
 		virtual bool canCompressType(PixelType pixelType) const;
 		
@@ -63,7 +66,7 @@ namespace MoxFiles
 		virtual VideoCodec * createCodec(const Header &header, const ChannelList &channels) const;
 		virtual VideoCodec * createCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) const;
 	};
-	
+
 } // namespace
 
-#endif // MOXFILES_DPXCODEC_H
+#endif // MOXFILES_JPEGXTCODEC_H

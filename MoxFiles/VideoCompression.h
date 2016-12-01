@@ -17,6 +17,8 @@ namespace MoxFiles
 		UNCOMPRESSED  = 0,	// no compression
 		JPEG,
 		JPEG2000,
+		JPEGLS,
+		//JPEGXT,
 		PNG,
 		DPX,
 		OPENEXR,

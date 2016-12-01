@@ -1,25 +1,25 @@
 /*
- *  DPXCodec.h
+ *  JPEGLSCodec.h
  *  MoxFiles
  *
- *  Created by Brendan Bolles on 5/12/16.
+ *  Created by Brendan Bolles on 11/26/16.
  *  Copyright 2016 fnord. All rights reserved.
  *
  */
 
-#ifndef MOXFILES_DPXCODEC_H
-#define MOXFILES_DPXCODEC_H
+#ifndef MOXFILES_JPEGLSCODEC_H
+#define MOXFILES_JPEGLSCODEC_H
 
 #include <MoxFiles/Codec.h>
 
 namespace MoxFiles
 {
-	class DPXCodec : public VideoCodec
+	class JPEGLSCodec : public VideoCodec
 	{
 	  public:
-		DPXCodec(const Header &header, const ChannelList &channels);
-		DPXCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels);
-		virtual ~DPXCodec();
+		JPEGLSCodec(const Header &header, const ChannelList &channels);
+		JPEGLSCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels);
+		virtual ~JPEGLSCodec();
 		
 		virtual const MoxMxf::VideoDescriptor * getDescriptor() const { return &_descriptor; }
 		
@@ -29,32 +29,29 @@ namespace MoxFiles
 	  private:
 		MoxMxf::RGBADescriptor _descriptor;
 		
-		enum DPX_Channels {
-			DPX_RGB,
-			DPX_RGBA
+		enum JPEGLS_Channels {
+			JPEGLS_RGB,
+			JPEGLS_RGBA
 		};
 		
-		DPX_Channels _channels;
+		JPEGLS_Channels _channels;
 		
-		enum DPX_Depth {
-			DPX_8,
-			DPX_10,
-			DPX_12,
-			DPX_16
+		enum JPEGLS_Depth {
+			JPEGLS_8,
+			JPEGLS_10,
+			JPEGLS_12,
+			JPEGLS_16
 		};
 		
-		DPX_Depth _depth;
-		
-		const Rational _pixelAspectRatio;
-		const Rational _frameRate;
+		JPEGLS_Depth _depth;
 	};
 	
 	
-	class DPXCodecInfo : public VideoCodecInfo
+	class JPEGLSCodecInfo : public VideoCodecInfo
 	{
 	  public:
-		DPXCodecInfo() {}
-		virtual ~DPXCodecInfo() {}
+		JPEGLSCodecInfo() {}
+		virtual ~JPEGLSCodecInfo() {}
 		
 		virtual bool canCompressType(PixelType pixelType) const;
 		
@@ -63,7 +60,7 @@ namespace MoxFiles
 		virtual VideoCodec * createCodec(const Header &header, const ChannelList &channels) const;
 		virtual VideoCodec * createCodec(const MoxMxf::VideoDescriptor &descriptor, Header &header, ChannelList &channels) const;
 	};
-	
+
 } // namespace
 
-#endif // MOXFILES_DPXCODEC_H
+#endif // MOXFILES_JPEGLSCODEC_H
