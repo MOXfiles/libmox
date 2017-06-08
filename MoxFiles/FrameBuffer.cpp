@@ -960,7 +960,25 @@ InvertCoefficients(const RGBtoYCbCr_Coefficients &in)
 		 in.Cbr, in.Cbg, in.Cbb,
 		 in.Crr, in.Crg, in.Crb);
 	
-	const M33d inv = mat.transposed().inverse().transposed(); // transposed because Imath:M33d is column-major
+	M33d inv = mat.transposed().inverse().transposed(); // transposed because Imath:M33d is column-major
+	
+	// there will be some rounding errors, which we'll fix in certain circumstances
+	for(int i=0; i < 3; i++)
+	{
+		for(int j=0; j < 3; j++)
+		{
+			double &val = inv[i][j];
+			
+			if(abs(val - 1.0) < 0.0000001)
+			{
+				val = 1.0;
+			}
+			else if(abs(val - 0.0) < 0.0000001)
+			{
+				val = 0.0;
+			}
+		}
+	}
 	
 	return YCbCrtoRGB_Coefficients(inv[0][0], inv[0][1], inv[0][2],
 									inv[1][0], inv[1][1], inv[1][2],
