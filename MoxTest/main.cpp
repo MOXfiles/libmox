@@ -47,7 +47,11 @@ MakeRGBRamp()
 	{
 		for(int c = 0; c < 3; c++)
 		{
-			*pix++ = x;
+			//*pix++ = x;
+			if(c == 0)
+				*pix++ = 255;
+			else
+				*pix++ = 0;
 		}
 	}
 	
@@ -102,6 +106,7 @@ FrameBufferYUVTest()
 	FrameBufferPtr yuv_ramp = MakeYCbCrRamp();
 	FrameBufferPtr end_ramp = MakeRGBRamp();
 	
+	yuv_ramp->coefficients() = FrameBuffer::Rec601;
 	
 	yuv_ramp->copyFromFrame(*start_ramp);
 	
@@ -133,10 +138,14 @@ FrameBufferYUVTest()
 	unsigned char *B_e = (unsigned char *)B_end.base;
 	
 	const int R_s_step = R_start.xStride / sizeof(unsigned char);
+	const int G_s_step = G_start.xStride / sizeof(unsigned char);
+	const int B_s_step = B_start.xStride / sizeof(unsigned char);
 	
 	const int Y_m_step = Y_mid.xStride / sizeof(unsigned char);
 	
 	const int R_e_step = R_end.xStride / sizeof(unsigned char);
+	const int G_e_step = G_end.xStride / sizeof(unsigned char);
+	const int B_e_step = B_end.xStride / sizeof(unsigned char);
 	
 	for(int x = 0; x < 256; x++)
 	{
@@ -144,12 +153,22 @@ FrameBufferYUVTest()
 	
 		if(abs((int)*R_s - (int)*R_e) > 1)
 			success = false;
-			
+		
+		if(abs((int)*G_s - (int)*G_e) > 1)
+			success = false;
+
+		if(abs((int)*B_s - (int)*B_e) > 1)
+			success = false;
+		
 		R_s += R_s_step;
+		G_s += R_s_step;
+		B_s += R_s_step;
 		
 		Y_m += Y_m_step;
 		
 		R_e += R_e_step;
+		G_e += G_e_step;
+		B_e += B_e_step;
 	}
 	
 	return success;

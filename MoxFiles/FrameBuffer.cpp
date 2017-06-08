@@ -952,6 +952,23 @@ YCbCrtoRGBTask::Clip(const float &val)
 }
 
 
+static YCbCrtoRGB_Coefficients
+InvertCoefficients(const RGBtoYCbCr_Coefficients &in)
+{
+	const M33d mat
+		(in.Yr,  in.Yg,  in.Yb,
+		 in.Cbr, in.Cbg, in.Cbb,
+		 in.Crr, in.Crg, in.Crb);
+	
+	const M33d inv = mat.transposed().inverse().transposed(); // transposed because Imath:M33d is column-major
+	
+	return YCbCrtoRGB_Coefficients(inv[0][0], inv[0][1], inv[0][2],
+									inv[1][0], inv[1][1], inv[1][2],
+									inv[2][0], inv[2][1], inv[2][2],
+									in.Yadd, in.Cadd);
+}
+
+
 static void
 copySlices_YCbCrtoRGB(TaskGroup &taskGroup,
 					const Slice &destination_R, const Slice &destination_G, const Slice &destination_B,
@@ -1044,31 +1061,108 @@ FrameBuffer::copyFromFrame(const FrameBuffer &other, bool fillMissing)
 		}
 		else
 		{
+			// Here are the Rec 601 and 709 standards documents:
+			// http://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.601-7-201103-I!!PDF-E.pdf
+			// http://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.709-6-201506-I!!PDF-E.pdf
+			
+			// A lot of this online stuff gives a low precision estimation or seems to be off
+			// http://www.fourcc.org/fccyvrgb.php
+			// http://www.equasys.de/colorconversion.html
+			// http://www.martinreddy.net/gfx/faqs/colorconv.faq
+			
+			// So our approach will be to use the math from the standards documents with maximum precision.
+			// This may mean there is a slight difference between how we are converting and how others have done it.
+			
+			static const RGBtoYCbCr_Coefficients rec601_full(0.299, 0.587, 0.114,
+															-0.299 / 1.772, -0.587 / 1.772, (1.0 - 0.114) / 1.772,
+															(1.0 - 0.299) / 1.402, -0.587 / 1.402, -0.114 / 1.402,
+															0, 128);
+			
+			static const YCbCrtoRGB_Coefficients rec601_full_inv = InvertCoefficients(rec601_full);
+			
+			static const double sY = (219.0 / 255.0); // scale Y
+			static const double sC = (224.0 / 255.0); // scale colors
+			
+			static const RGBtoYCbCr_Coefficients rec601(rec601_full.Yr * sY, rec601_full.Yg * sY, rec601_full.Yb * sY,
+														rec601_full.Cbr * sC, rec601_full.Cbg * sC, rec601_full.Cbb * sC,
+														rec601_full.Crr * sC, rec601_full.Crg * sC, rec601_full.Crb * sC,
+														16, 128);
+			
+			static const YCbCrtoRGB_Coefficients rec601_inv = InvertCoefficients(rec601);
+			
+			static const RGBtoYCbCr_Coefficients rec709_full(0.2126, 0.7152, 0.0722,
+															-0.2126 / 1.8556, -0.7152 / 1.8556, (1.0 - 0.0722) / 1.8556,
+															(1.0 - 0.2126) / 1.5748, -0.7152 / 1.5748, -0.0722 / 1.5748,
+															0, 128);
+															
+			static const YCbCrtoRGB_Coefficients rec709_full_inv = InvertCoefficients(rec709_full);
+			
+			static const RGBtoYCbCr_Coefficients rec709(rec709_full.Yr * sY, rec709_full.Yg * sY, rec709_full.Yb * sY,
+														rec709_full.Cbr * sC, rec709_full.Cbg * sC, rec709_full.Cbb * sC,
+														rec709_full.Crr * sC, rec709_full.Crg * sC, rec709_full.Crb * sC,
+														16, 128);
+
+			static const YCbCrtoRGB_Coefficients rec709_inv = InvertCoefficients(rec709);
+			
+			// here are the results of these calculations:
+			//
+			//  rec601_full
+			//
+			//  0.29900000,  0.58700000,  0.11400000
+			// -0.16873589, -0.33126411,  0.50000000
+			//  0.50000000, -0.41868759, -0.08131241
+			//
+			//
+			// 	rec601_full_inv
+			//
+			//  1.00000000,  0.00000000,  1.40200000
+			//  1.00000000, -0.34413627, -0.71413629
+			//  1.00000000,  1.77200000,  0.00000000
+			//
+			//
+			//  rec601
+			//
+			//  0.25678824,  0.50412941,  0.09790588
+			// -0.14822290, -0.29099279,  0.43921569
+			//  0.43921569, -0.36778831, -0.07142737
+			//
+			//
+			//  rec601_inv
+			//
+			//  1.16438356,  0.00000000,  1.59602679
+			//  1.16438356, -0.39176229, -0.81296765
+			//  1.16438356,  2.01723214,  0.00000000
+			//
+			//
+			//  rec709_full
+			//
+			//  0.21260000,  0.71520000,  0.07220000
+			// -0.11457211, -0.38542790,  0.50000000
+			//  0.50000000, -0.45415291, -0.04584709
+			//
+			//
+			//  rec709_full_inv
+			//
+			//  1.00000000,  0.00000000,  1.57480000
+			//  1.00000000, -0.18732427, -0.46812427
+			//  1.00000000,  1.85560000,  0.00000000
+			//
+			//
+			//  rec709
+			//
+			//  0.18258588,  0.61423059,  0.06200706
+			// -0.10064373, -0.33857195,  0.43921569
+			//  0.43921569, -0.39894216, -0.04027352
+			//
+			//
+			//  rec709_inv
+			//
+			//  1.16438356,  0.00000000,  1.79274107
+			//  1.16438356, -0.21324861, -0.53290933
+			//  1.16438356,  2.11240179,  0.00000000
+			
 			if(this->isYCbCr() && !other.isYCbCr())
 			{
-				// http://www.equasys.de/colorconversion.html
-				// http://www.martinreddy.net/gfx/faqs/colorconv.faq
-				
-				static const RGBtoYCbCr_Coefficients rec601(0.257, 0.504, 0.098,
-															-0.148, -0.291, 0.439,
-															0.439, -0.368, -0.071,
-															16, 128);
-
-				static const RGBtoYCbCr_Coefficients rec601_full(0.299, 0.587, 0.114,
-																-0.169, -0.331, 0.5,
-																0.5, -0.419, -0.081,
-																0, 128);
-															
-				static const RGBtoYCbCr_Coefficients rec709(0.183, 0.614, 0.062,
-															-0.101, -0.339, 0.439,
-															0.439, -0.399, -0.040,
-															16, 128);
-				
-				static const RGBtoYCbCr_Coefficients rec709_full(0.2215, 0.7154, 0.0721,
-																-0.1145, -0.3855, 0.5,
-																0.5, -0.4556, -0.0459,
-																0, 128);
-															
 				const RGBtoYCbCr_Coefficients &coefficients = (_coefficients == Rec601 ? rec601 :
 																_coefficients == Rec601_FullRange ? rec601_full :
 																_coefficients == Rec709 ? rec709 :
@@ -1117,30 +1211,10 @@ FrameBuffer::copyFromFrame(const FrameBuffer &other, bool fillMissing)
 			}
 			else if(!this->isYCbCr() && other.isYCbCr())
 			{
-				static const YCbCrtoRGB_Coefficients rec601(1.164, 0.0, 1.596,
-															1.164, -0.392, -0.813,
-															1.164, 2.017, 0.0,
-															16, 128);
-
-				static const YCbCrtoRGB_Coefficients rec601_full(1.0, 0.0, 1.4,
-																1.0, -0.343, -0.711,
-																1.0, 1.765, 0.0,
-																0, 128);
-															
-				static const YCbCrtoRGB_Coefficients rec709(1.164, 0.0, 1.793,
-															1.164, -0.213, -0.533,
-															1.164, 2.112, 0.0,
-															16, 128);
-				
-				static const YCbCrtoRGB_Coefficients rec709_full(1.0, 0.0, 1.5701,
-																1.0, -0.1870, -0.4664,
-																1.0, -1.8556, 0.0,
-																0, 128);
-																
-				const YCbCrtoRGB_Coefficients &coefficients = (_coefficients == Rec601 ? rec601 :
-																_coefficients == Rec601_FullRange ? rec601_full :
-																_coefficients == Rec709 ? rec709 :
-																rec709_full);
+				const YCbCrtoRGB_Coefficients &coefficients = (other.coefficients() == Rec601 ? rec601_inv :
+																other.coefficients() == Rec601_FullRange ? rec601_full_inv :
+																other.coefficients() == Rec709 ? rec709_inv :
+																rec709_full_inv);
 																
 				Slice *R_slice = this->findSlice("R");
 				Slice *G_slice = this->findSlice("G");

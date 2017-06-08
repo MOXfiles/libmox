@@ -14,6 +14,7 @@
 #include <MoxMxf/IOStream.h>
 
 #include <ImathBox.h>
+#include <ImathMatrix.h>
 #include <ImfName.h>
 #include <ImfInt64.h>
 
@@ -58,6 +59,9 @@ namespace MoxFiles
 	//using Imath::Box3i;
 	//using Imath::Box3f;
 	//using Imath::Box3d;
+	
+	//using Imath::M33f;
+	using Imath::M33d;
 	
 	using Imf::Name;
 

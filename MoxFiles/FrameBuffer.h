@@ -142,8 +142,8 @@ class FrameBuffer : public RefCount<FrameBuffer>
 		Rec709_FullRange
 	};
 
-	Coefficients & coeffiecients() { return _coefficients; }
-	const Coefficients & coeffiecients() const { return _coefficients; }
+	Coefficients & coefficients() { return _coefficients; }
+	const Coefficients & coefficients() const { return _coefficients; }
 	
     //------------
     // Add a slice
