@@ -10,6 +10,7 @@
 #include <MoxFiles/FrameBuffer.h>
 
 #include <iostream>
+#include <fstream>
 
 #include <math.h>
 
@@ -174,6 +175,7 @@ FrameBufferYUVTest()
 	return success;
 }
 
+
 template <typename T, int MAX>
 static bool
 YCgCoTest()
@@ -283,6 +285,197 @@ YCgCoTest()
 }
 
 
+static FrameBufferPtr
+MakeRGBCube(unsigned int size = 64)
+{
+	const int width = (size * size * size);
+	const int height = 1;
+	
+	FrameBufferPtr frame = new FrameBuffer(width, height);
+	
+	const size_t subpixel_size = sizeof(float);
+	const size_t pixel_size = subpixel_size * 3;
+	const size_t rowbytes = pixel_size * width;
+	const size_t data_size = rowbytes * height;
+	
+	DataChunkPtr data = new DataChunk(data_size);
+	
+	frame->attachData(data);
+	
+	unsigned char *origin = data->Data;
+	
+	const char *chan[3] = {"R", "G", "B"};
+	
+	for(int i = 0; i < 3; i++)
+	{
+		frame->insert(chan[i], Slice(MoxFiles::FLOAT, (char *)origin + (i * subpixel_size), pixel_size, rowbytes));
+	}
+	
+	float *pix = (float *)origin;
+	
+	for(int b=0; b < size; b++)
+	{
+		const float blue = (float)b / (float)(size - 1);
+		
+		for(int g=0; g < size; g++)
+		{
+			const float green = (float)g / (float)(size - 1);
+		
+			for(int r=0; r < size; r++)
+			{
+				const float red = (float)r / (float)(size - 1);
+			
+				*pix++ = red;
+				*pix++ = green;
+				*pix++ = blue;
+			}
+		}
+	}
+	
+	return frame;
+}
+
+
+static FrameBufferPtr
+MakeYCbCrCube(unsigned int size = 64)
+{
+	const int width = (size * size * size);
+	const int height = 1;
+	
+	FrameBufferPtr frame = new FrameBuffer(width, height);
+	
+	const size_t subpixel_size = sizeof(float);
+	const size_t pixel_size = subpixel_size * 3;
+	const size_t rowbytes = pixel_size * width;
+	const size_t data_size = rowbytes * height;
+	
+	DataChunkPtr data = new DataChunk(data_size);
+	
+	frame->attachData(data);
+	
+	unsigned char *origin = data->Data;
+	
+	const char *chan[3] = {"Y", "Cb", "Cr"};
+	
+	for(int i = 0; i < 3; i++)
+	{
+		frame->insert(chan[i], Slice(MoxFiles::FLOAT, (char *)origin + (i * subpixel_size), pixel_size, rowbytes));
+	}
+	
+	float *pix = (float *)origin;
+	
+	for(int cr=0; cr < size; cr++)
+	{
+		const float Cr = ((((double)cr / (double)(size - 1)) - 0.5) * (224.0 / 255.0)) + (128.0 / 255.0);
+				
+		for(int cb=0; cb < size; cb++)
+		{
+			const float Cb = ((((double)cb / (double)(size - 1)) - 0.5) * (224.0 / 255.0)) + (128.0 / 255.0);
+		
+			for(int y=0; y < size; y++)
+			{
+				const float Y = (((double)y / (double)(size - 1)) * (219.0 / 255.0)) + (16.0 / 255.0);
+			
+				*pix++ = Y;
+				*pix++ = Cb;
+				*pix++ = Cr;
+			}
+		}
+	}
+	
+	return frame;
+}
+
+
+static void
+WriteCubeFile(FrameBufferPtr frame, const char *path, const char *title)
+{
+	// make sure we hace just one long row of unbroken pixels
+	const int size = 64;
+	assert(frame->width() == (size * size * size));
+	assert(frame->height() == 1);
+	
+	Slice *rSlice = frame->findSlice("R");
+	Slice *gSlice = frame->findSlice("G");
+	Slice *bSlice = frame->findSlice("B");
+	
+	assert(rSlice != NULL && rSlice->type == MoxFiles::FLOAT && rSlice->xStride == (3 * sizeof(float)));
+	assert(gSlice != NULL && gSlice->type == MoxFiles::FLOAT && gSlice->xStride == (3 * sizeof(float)));
+	assert(bSlice != NULL && bSlice->type == MoxFiles::FLOAT && bSlice->xStride == (3 * sizeof(float)));
+	
+	using namespace std;
+	
+	ofstream file(path);
+		
+	file << endl;
+	file << "TITLE \"" << title << "\"" << endl;
+	file << endl;
+	file << "LUT_3D_SIZE 64" << endl;
+	file << endl;
+	
+	float *pix = (float *)rSlice->base;
+	
+	file << fixed << setprecision(5);
+	
+	for(int b=0; b < size; b++)
+	{
+		for(int g=0; g < size; g++)
+		{
+			for(int r=0; r < size; r++)
+			{
+				file << *pix++ << " ";
+				file << *pix++ << " ";
+				file << *pix++ << endl;
+			}
+		}
+	}
+	
+	file << endl;
+}
+
+
+static void
+MakeCubes()
+{
+	// this isn't a test, I'm just making some LUTs
+	// probably should fine a better place to put this
+	
+	FrameBufferPtr cleanRGB = MakeRGBCube();
+	
+	WriteCubeFile(cleanRGB, "/Users/mrb/Desktop/601to709/NoOp.cube", "NoOp");
+	
+	
+	FrameBufferPtr write709 = MakeYCbCrCube();
+	
+	write709->coefficients() = FrameBuffer::Rec709;
+	
+	write709->copyFromFrame(cleanRGB);
+	
+	write709->coefficients() = FrameBuffer::Rec601;
+	
+	FrameBufferPtr read601 = MakeRGBCube();
+	
+	read601->copyFromFrame(write709);
+	
+	WriteCubeFile(read601, "/Users/mrb/Desktop/601to709/709to601.cube", "709to601");
+	
+	
+	FrameBufferPtr write601 = MakeYCbCrCube();
+	
+	write601->coefficients() = FrameBuffer::Rec601;
+	
+	write601->copyFromFrame(cleanRGB);
+	
+	write601->coefficients() = FrameBuffer::Rec709;
+	
+	FrameBufferPtr read709 = MakeRGBCube();
+	
+	read709->copyFromFrame(write601);
+	
+	WriteCubeFile(read709, "/Users/mrb/Desktop/601to709/601to709.cube", "709to601");
+}
+
+
 int main(int argc, char * const argv[])
 {
 	bool success = true;
@@ -300,6 +493,8 @@ int main(int argc, char * const argv[])
 		//std::cout << (ycgco_test ? "success" : "failed") << std::endl;
 		//if(!ycgco_test)
 		//	success = false;
+		
+		//MakeCubes();
 	}
 	catch(std::exception &e)
 	{
