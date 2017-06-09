@@ -16,6 +16,7 @@
 #include <half.h>
 
 #include <algorithm>
+#include <cmath>
 
 using std::min;
 using std::max;
@@ -969,11 +970,13 @@ InvertCoefficients(const RGBtoYCbCr_Coefficients &in)
 		{
 			double &val = inv[i][j];
 			
-			if(abs(val - 1.0) < 0.0000001)
+			assert(std::abs(1.5 - 1.0) > 0.0000001); // make sure I've got abs(double)
+			
+			if(std::abs(val - 1.0) < 0.0000001)
 			{
 				val = 1.0;
 			}
-			else if(abs(val - 0.0) < 0.0000001)
+			else if(std::abs(val - 0.0) < 0.0000001)
 			{
 				val = 0.0;
 			}

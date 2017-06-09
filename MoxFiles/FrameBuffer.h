@@ -124,6 +124,7 @@ class FrameBuffer : public RefCount<FrameBuffer>
 	~FrameBuffer() {}
 	
 	void copyFromFrame(const FrameBuffer &other, bool fillMissing = true);
+	void copyFromFrame(const FrameBuffer *other, bool fillMissing = true) { copyFromFrame(*other, fillMissing); }
 	
 	void attachData(DataChunkPtr dat) { _data.push_back(dat);  }
 	
