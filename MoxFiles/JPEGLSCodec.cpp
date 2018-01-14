@@ -17,7 +17,7 @@
 
 #undef ASSERT // defined in mxflib
 
-#include "interface.h"
+#include "libjpegls2/charls.h"
 
 namespace MoxFiles
 {
@@ -157,8 +157,8 @@ JPEGLSCodec::compress(const FrameBuffer &frame)
 	//params.bytesperline = (tempRowbytes / 3);
 	params.components = numChannels;
 	params.allowedlossyerror = 0; // always lossless
-	params.ilv = ILV_SAMPLE;
-	params.colorTransform = COLORXFORM_NONE;
+	params.interleaveMode = charls::InterleaveMode::Sample;
+	params.colorTransformation = charls::ColorTransformation::None;
 	//params.outputBgr = 0;
 	
 	/*
@@ -186,25 +186,25 @@ JPEGLSCodec::compress(const FrameBuffer &frame)
 	
 	size_t bytesWritten = 0;
 	
-	JLS_ERROR err = OK;
+	charls::ApiResult err = charls::ApiResult::OK;
 	
 	do
 	{
 		ByteStreamInfo outStream = FromByteArray(outDataChunk->Data, outDataChunk->Size);
 		
-		err = JpegLsEncodeStream(outStream, &bytesWritten, inStream, &params);
+		err = JpegLsEncodeStream(outStream, bytesWritten, inStream, params, 0);
 		
-		if(err == CompressedBufferTooSmall)
+		if(err == charls::ApiResult::CompressedBufferTooSmall)
 		{
 			outDataChunk->Resize(2 * outDataChunk->Size, false);
 		}
 	
-	}while(err == CompressedBufferTooSmall);
+	}while(err == charls::ApiResult::CompressedBufferTooSmall);
 	
-	assert(err != TooMuchCompressedData);
+	assert(err != charls::ApiResult::TooMuchCompressedData);
 	
 	
-	if(err == OK)
+	if(err == charls::ApiResult::OK)
 	{
 		assert(bytesWritten > 0);
 	
@@ -225,15 +225,15 @@ JPEGLSCodec::decompress(const DataChunk &data)
 	
 	struct JlsParameters info;
 	
-	JLS_ERROR err = JpegLsReadHeaderStream(inStream, &info);
+ 	charls::ApiResult err = JpegLsReadHeaderStream(inStream, &info, 0);
 	
-	if(err == OK)
+ 	if(err == charls::ApiResult::OK)
 	{
 		const int width = info.width;
 		const int height = info.height;
 		
 		assert(info.components == (_channels == JPEGLS_RGBA ? 4 : 3));
-		assert(info.colorTransform == COLORXFORM_NONE);
+		assert(info.colorTransformation == charls::ColorTransformation::None);
 		
 		const PixelType pixType = (_depth == JPEGLS_8 ? UINT8 :
 									_depth == JPEGLS_10 ? UINT10 :
@@ -276,15 +276,15 @@ JPEGLSCodec::decompress(const DataChunk &data)
 		ByteStreamInfo outStream = FromByteArray(frameData->Data, frameData->Size);
 		
 		
-		err = JpegLsDecodeStream(outStream, inStream, &info);
+		err = JpegLsDecodeStream(outStream, inStream, &info, 0);
 		
-		if(err == OK)
+		if(err == charls::ApiResult::OK)
 		{
 			storeFrame(frameBuffer);
 		}
 	}
 	
-	if(err != OK)
+	if(err != charls::ApiResult::OK)
 		throw MoxMxf::ArgExc("JPEG-LS decompression error");
 }
 
