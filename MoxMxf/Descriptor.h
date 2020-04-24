@@ -31,11 +31,11 @@ namespace MoxMxf
 		virtual UInt8 getGCItemType() const = 0;
 		virtual UInt8 getGCElementType() const = 0;
 		
-		typedef enum DescriptorType
+		typedef enum
 		{
 			DescriptorTypeVideo,
 			DescriptorTypeAudio
-		};
+		} DescriptorType;
 		
 		virtual DescriptorType getDescriptorType() const = 0;
 		
@@ -74,7 +74,7 @@ namespace MoxMxf
 		
 		DescriptorType getDescriptorType() const { return DescriptorTypeVideo; }
 		
-		typedef enum VideoCodec
+		typedef enum
 		{
 			VideoCodecUncompressedCDCI,
 			VideoCodecUncompressedRGB,
@@ -89,7 +89,7 @@ namespace MoxMxf
 			VideoCodecDiracCDCI,
 			VideoCodecDiracRGB,
 			VideoCodecUnknown
-		};
+		} VideoCodec;
 		
 		virtual VideoCodec getVideoCodec() const = 0;
 		
@@ -130,7 +130,7 @@ namespace MoxMxf
 		UInt32 getImageStartOffset() const { return _image_start_offset; }
 		UInt32 getImageEndOffset() const { return _image_end_offset; }
 		
-		typedef enum CaptureGamma
+		typedef enum
 		{
 			CaptureGamma_Unknown = 0,
 			CaptureGamma_BT470,
@@ -140,7 +140,7 @@ namespace MoxMxf
 			CaptureGamma_BT1361,
 			CaptureGamma_Linear,
 			CaptureGamma_DC28
-		};
+		} CaptureGamma;
 		
 		CaptureGamma getCaptureGamma() const;
 		void setCaputeGamma(CaptureGamma gamma);
@@ -401,12 +401,12 @@ namespace MoxMxf
 		
 		virtual DescriptorType getDescriptorType() const { return DescriptorTypeAudio; }
 		
-		typedef enum AudioCodec
+		typedef enum
 		{
 			AudioCodecUncompressedPCM,
 			AudioCodecAES3,
 			AudioCodecUnknown
-		};
+		} AudioCodec;
 		
 		virtual AudioCodec getAudioCodec() const = 0;
 		

@@ -24,7 +24,7 @@ namespace MoxMxf
 		Track(mxflib::TrackPtr track);
 		virtual ~Track() {}
 		
-		typedef enum TrackType					// copied from Track::TrackType in metadata.h
+		typedef enum					// copied from Track::TrackType in metadata.h
 		{
 			TrackTypeUndetermined = -1,			//!< Not yet checked
 			TrackTypeUnknown = 0,				//!< Not a known type
@@ -35,7 +35,7 @@ namespace MoxMxf
 			TrackTypeDataEssence,				//!< Data track
 			TrackTypeAuxiliary,					//!< Auxiliary track
 			TrackTypeParsedText,				//!< Parsed Text track
-		};
+		} TrackType;
 		
 		TrackType getType() const { return _type; }
 		Position getOrigin() const { return _origin; }
